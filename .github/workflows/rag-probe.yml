@@ -1,0 +1,113 @@
+name: rag-probe
+
+# One-off timing run for docs-rag-assistant on a 4 vCPU runner. Started by hand.
+
+on:
+  workflow_dispatch:
+    inputs:
+      models:
+        description: "Comma-separated chat model tags"
+        default: "qwen2.5:3b,qwen2.5:1.5b"
+        required: true
+
+env:
+  APP_REF: 44bd6949e36cab52c4953ead1b3be73651c28b43
+  EMBED_MODEL: qwen3-embedding:0.6b
+  OLLAMA_VERSION: "0.40.16"
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - id: m
+        env:
+          MODELS: ${{ inputs.models }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os
+          tags = [t.strip() for t in os.environ["MODELS"].split(",") if t.strip()]
+          print("matrix=" + json.dumps({"model": tags}))
+          PY
+
+  probe:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: rag_assistant
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/checkout@v7
+        with:
+          repository: ramaraihan12/docs-rag-assistant
+          ref: ${{ env.APP_REF }}
+          path: app
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "0.12.23"
+
+      - name: install the app
+        working-directory: app
+        run: |
+          start=$(date +%s)
+          uv sync --locked
+          echo "UV_SECONDS=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
+
+      - name: install ollama
+        run: |
+          start=$(date +%s)
+          for i in 1 2 3; do
+            curl -fsSL https://ollama.com/install.sh | OLLAMA_VERSION="$OLLAMA_VERSION" sh && break
+            sleep 10
+          done
+          sudo systemctl stop ollama || true
+          ollama --version
+          echo "OLLAMA_INSTALL_SECONDS=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
+
+      - name: start ollama and pull the models
+        run: |
+          mkdir -p ~/ollama-models
+          OLLAMA_MODELS=$HOME/ollama-models OLLAMA_KEEP_ALIVE=30m nohup ollama serve > ollama.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf localhost:11434/api/version && break; sleep 1; done
+          start=$(date +%s)
+          OLLAMA_MODELS=$HOME/ollama-models ollama pull "$EMBED_MODEL"
+          OLLAMA_MODELS=$HOME/ollama-models ollama pull "${{ matrix.model }}"
+          echo "PULL_SECONDS=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
+          curl -s localhost:11434/api/tags | python3 -c "import json,sys; [print(m['name'], m['digest']) for m in json.load(sys.stdin)['models']]"
+
+      - name: run the probe
+        working-directory: app
+        run: |
+          out="$GITHUB_WORKSPACE/results/$(echo '${{ matrix.model }}' | tr ':/' '__').json"
+          uv run python "$GITHUB_WORKSPACE/bench/rag_probe.py" --model "${{ matrix.model }}" --out "$out"
+          echo "install: uv ${UV_SECONDS}s, ollama ${OLLAMA_INSTALL_SECONDS}s, pull ${PULL_SECONDS}s" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: ollama log
+        if: always()
+        run: tail -n 30 ollama.log || true
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: probe-${{ strategy.job-index }}
+          path: results/*.json
