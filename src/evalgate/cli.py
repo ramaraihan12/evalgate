@@ -90,6 +90,12 @@ def cmd_run(args) -> int:
 def cmd_validate(args) -> int:
     cases = load_cases(args.dataset)
     adapter = load_adapter(args.adapter)
+    if hasattr(adapter, "validate"):
+        problems = adapter.validate(cases)
+        for line in problems:
+            print(line)
+        print(f"{len(cases)} cases, {len(problems)} problems")
+        return 1 if problems else 0
     bad = 0
     for case in cases:
         if case.get("expect") == "no_sql":

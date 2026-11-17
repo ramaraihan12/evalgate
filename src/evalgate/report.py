@@ -1,5 +1,6 @@
 """Markdown for the job summary and the sticky PR comment."""
 
+from evalgate import ragmetrics
 from evalgate.stats import ALPHA, min_regressions
 
 MARKER = "<!-- evalgate-gate -->"
@@ -49,7 +50,64 @@ def runner_warning(base: dict, head: dict) -> str | None:
     )
 
 
+def _rag_note(n: int, model: str, digest: str) -> str:
+    return (
+        "A case passes when the expected passage was retrieved and the answer cites it, or, for a "
+        "question the documents don't answer, when the answer cites nothing and says the "
+        "documents don't cover it. No model grades the answers. The expected passages come from "
+        "the dataset, so a PR can only change the grading by editing the dataset. With "
+        f"{n} cases only large drops can be detected: even if nothing improved, at least "
+        f"{min_regressions()} cases would have to flip from right to wrong before this fails. "
+        f"A pass means no large drop, not that nothing changed. The model is small (`{model}`, "
+        f"digest `{digest}`, on a CPU runner) and is not the model the live app uses, so this "
+        "shows how chunking, retrieval and the prompt behave, not how the production model "
+        "would score."
+    )
+
+
+def _num(x: float | None, as_pct: bool = True) -> str:
+    if x is None:
+        return "n/a"
+    return _pct(x) if as_pct else f"{x:.2f}"
+
+
+def _secondary_table(base: dict, head: dict) -> list[str]:
+    """Document Q&A only: the numbers behind the gated pass, per side."""
+    a, b = ragmetrics.summarize(base["cases"]), ragmetrics.summarize(head["cases"])
+    rows = [
+        ("retrieval hit rate", _num(a["hit_rate"]), _num(b["hit_rate"])),
+        ("MRR", _num(a["mrr"], False), _num(b["mrr"], False)),
+        ("citation rate", _num(a["citation_rate"]), _num(b["citation_rate"])),
+        ("out-of-range citations", str(a["out_of_range"]), str(b["out_of_range"])),
+        ("abstain rate", _num(a["abstain_rate"]), _num(b["abstain_rate"])),
+    ]
+    lines = [
+        "",
+        f"Secondary numbers ({a['answerable']} answerable questions, {a['abstain']} the documents "
+        "don't answer). They are not gated.",
+        "",
+        "| | base | this PR |",
+        "|---|---|---|",
+    ]
+    return lines + [f"| {name} | {x} | {y} |" for name, x, y in rows]
+
+
+def _rag_flips(result: dict, flipped: list) -> list[str]:
+    lines = []
+    for kind, case_id in flipped:
+        hc, bc = result["head_cases"][case_id], result["base_cases"][case_id]
+        if kind == "regressed":
+            lines.append(f"**{case_id}**, now wrong ({ragmetrics.why(hc)}): {hc['question']}")
+            if hc.get("answer"):
+                lines += ["", "```text", _clip(hc["answer"]), "```"]
+        else:
+            lines.append(f"**{case_id}**, now right (base: {ragmetrics.why(bc)}): {hc['question']}")
+        lines.append("")
+    return lines
+
+
 def render(result: dict, base: dict, head: dict) -> str:
+    is_rag = (head.get("adapter") or {}).get("name") == "docsrag"
     n = result["n"]
     verdict = result["verdict"]
     model = head.get("model", "?")
@@ -73,6 +131,8 @@ def render(result: dict, base: dict, head: dict) -> str:
         lines += ["", warning]
     if result["verdict"] == "FAIL":
         lines += ["", "This PR answers fewer of the cases correctly than its base, by more than noise explains."]
+    if is_rag:
+        lines += _secondary_table(base, head)
 
     lines += [
         "",
@@ -83,7 +143,7 @@ def render(result: dict, base: dict, head: dict) -> str:
     flipped = [("regressed", i) for i in result["regressed"]] + [("fixed", i) for i in result["fixed"]]
     if flipped:
         lines += ["", "<details><summary>Cases that changed</summary>", ""]
-        for kind, case_id in flipped:
+        for kind, case_id in ([] if is_rag else flipped):
             hc, bc = result["head_cases"][case_id], result["base_cases"][case_id]
             if kind == "regressed":
                 lines.append(f"**{case_id}**, now wrong ({_why(hc)}): {hc['question']}")
@@ -92,7 +152,13 @@ def render(result: dict, base: dict, head: dict) -> str:
             else:
                 lines.append(f"**{case_id}**, now right (base {_why(bc)}): {hc['question']}")
             lines.append("")
+        if is_rag:
+            lines += _rag_flips(result, flipped)
         lines.append("</details>")
+
+    if is_rag:
+        lines += ["", _rag_note(n, model, digest)]
+        return "\n".join(lines) + "\n"
 
     lines += [
         "",
