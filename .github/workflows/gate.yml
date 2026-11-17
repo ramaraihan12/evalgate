@@ -1,0 +1,204 @@
+name: eval gate
+
+# Reusable. The caller runs it on the pull_request event (never pull_request_target) and
+# passes the base and head commits. Base and PR run as two parallel jobs on separate runners,
+# so they never share one Ollama server and its prompt cache.
+
+on:
+  workflow_call:
+    inputs:
+      app_repo:
+        description: "owner/name of the repo the pull request targets"
+        type: string
+        required: true
+      head_repo:
+        description: "owner/name the PR branch lives in (differs for forks)"
+        type: string
+        required: true
+      base_sha:
+        type: string
+        required: true
+      head_sha:
+        type: string
+        required: true
+      pr_number:
+        type: number
+        required: true
+      dataset:
+        description: "path of the cases file inside the app repo, read from the PR head"
+        type: string
+        default: evals/sql_cases.jsonl
+      adapter:
+        type: string
+        default: evalgate.adapters.sqlchat:SqlChatAdapter
+      model:
+        description: "Ollama tag"
+        type: string
+        required: true
+      model_digest:
+        description: "digest of the tag as Ollama reports it. The job fails if the pull differs."
+        type: string
+        required: true
+      evalgate_repo:
+        type: string
+        default: ramaraihan12/evalgate
+      evalgate_ref:
+        type: string
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    name: run (${{ matrix.side }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - side: base
+            repo: ${{ inputs.app_repo }}
+            sha: ${{ inputs.base_sha }}
+          - side: head
+            repo: ${{ inputs.head_repo }}
+            sha: ${{ inputs.head_sha }}
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: text_to_sql
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.evalgate_repo }}
+          ref: ${{ inputs.evalgate_ref }}
+          path: evalgate
+
+      - name: app code for this side
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ matrix.repo }}
+          ref: ${{ matrix.sha }}
+          path: app
+          persist-credentials: false
+
+      - name: cases from the PR head
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.head_repo }}
+          ref: ${{ inputs.head_sha }}
+          path: cases
+          sparse-checkout: ${{ inputs.dataset }}
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "0.12.23"
+
+      # setup runs from this side's checkout: the schema comments are part of what is tested
+      - name: install the app and seed the database
+        working-directory: app
+        run: |
+          uv sync --locked
+          uv pip install --python .venv/bin/python --no-deps ../evalgate
+          .venv/bin/sqlchat setup
+
+      - name: check the gold sql
+        if: matrix.side == 'head'
+        run: app/.venv/bin/evalgate validate --dataset "cases/${{ inputs.dataset }}" --adapter "${{ inputs.adapter }}"
+
+      - name: install ollama
+        run: |
+          for i in 1 2 3; do curl -fsSL https://ollama.com/install.sh | sh && break; sleep 10; done
+          sudo systemctl stop ollama || true
+          ollama --version
+
+      - name: model cache
+        uses: actions/cache@v5
+        with:
+          path: ~/ollama-models
+          key: ollama-${{ inputs.model }}-${{ inputs.model_digest }}
+
+      - name: start ollama and pull the model
+        run: |
+          mkdir -p ~/ollama-models
+          OLLAMA_MODELS=$HOME/ollama-models nohup ollama serve > ollama.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf localhost:11434/api/version && break; sleep 1; done
+          OLLAMA_MODELS=$HOME/ollama-models ollama pull "${{ inputs.model }}"
+          app/.venv/bin/evalgate check-model --model "${{ inputs.model }}" --digest "${{ inputs.model_digest }}"
+
+      - name: run the cases
+        run: |
+          app/.venv/bin/evalgate run \
+            --dataset "cases/${{ inputs.dataset }}" \
+            --adapter "${{ inputs.adapter }}" \
+            --model "${{ inputs.model }}" \
+            --side "${{ matrix.side }}" \
+            --sha "${{ matrix.sha }}" \
+            --out "results/${{ matrix.side }}.json"
+
+      - name: ollama log
+        if: always()
+        run: tail -n 30 ollama.log || true
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: result-${{ matrix.side }}
+          path: results/${{ matrix.side }}.json
+
+  compare:
+    needs: run
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.evalgate_repo }}
+          ref: ${{ inputs.evalgate_ref }}
+          path: evalgate
+
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: result-*
+          path: parts
+          merge-multiple: true
+
+      - name: compare base and PR
+        run: |
+          export PYTHONPATH=evalgate/src
+          python3 -m evalgate compare --base parts/base.json --head parts/head.json \
+            --out-md report.md --out-json verdict.json
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: sticky comment
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          PYTHONPATH=evalgate/src python3 -m evalgate comment \
+            --repo "${{ github.repository }}" --pr "${{ inputs.pr_number }}" --body-file report.md
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: gate-report
+          path: |
+            report.md
+            verdict.json
+
+      - name: set the result
+        run: PYTHONPATH=evalgate/src python3 -m evalgate verdict --file verdict.json
