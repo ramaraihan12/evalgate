@@ -1,0 +1,128 @@
+name: m0-bench
+
+on:
+  workflow_dispatch:
+    inputs:
+      models:
+        description: "Comma-separated Ollama tags"
+        default: "qwen2.5-coder:1.5b,qwen2.5-coder:3b,llama3.2:3b,qwen3.5:0.8b"
+        required: true
+
+env:
+  APP_REF: f06ca72
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - id: m
+        env:
+          MODELS: ${{ inputs.models }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os
+          tags = [t.strip() for t in os.environ["MODELS"].split(",") if t.strip()]
+          print("matrix=" + json.dumps({"model": tags}))
+          PY
+
+  bench:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: text_to_sql
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/checkout@v7
+        with:
+          repository: ramaraihan12/text-to-sql-chat
+          ref: ${{ env.APP_REF }}
+          path: app
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "0.12.23"
+
+      - name: install app and seed the database
+        working-directory: app
+        run: |
+          uv sync --locked
+          uv run sqlchat setup
+
+      - name: check the gold sql
+        run: uv run --project app python bench/m0.py --validate-only
+
+      - name: install ollama
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          sudo systemctl stop ollama || true
+          ollama --version
+
+      - name: model cache
+        id: cache
+        uses: actions/cache@v5
+        with:
+          path: ~/ollama-models
+          key: ollama-${{ matrix.model }}
+
+      - name: start ollama and pull the model
+        run: |
+          mkdir -p ~/ollama-models
+          OLLAMA_MODELS=$HOME/ollama-models nohup ollama serve > ollama.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf localhost:11434/api/version && break; sleep 1; done
+          start=$(date +%s)
+          OLLAMA_MODELS=$HOME/ollama-models ollama pull "${{ matrix.model }}"
+          echo "PULL_SECONDS=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
+          echo "CACHE_HIT=${{ steps.cache.outputs.cache-hit }}" >> "$GITHUB_ENV"
+
+      - name: run the benchmark
+        run: |
+          out="results/$(echo '${{ matrix.model }}' | tr ':/' '__').json"
+          uv run --project app python bench/m0.py --model "${{ matrix.model }}" --out "$out"
+
+      - name: ollama log
+        if: always()
+        run: tail -n 40 ollama.log || true
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: m0-${{ strategy.job-index }}
+          path: results/*.json
+
+  aggregate:
+    needs: bench
+    if: always() && needs.bench.result != 'skipped'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: m0-*
+          path: parts
+      - name: build the table
+        run: |
+          python3 bench/aggregate.py parts m0-combined.json summary.md
+          cat summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: m0-combined
+          path: m0-combined.json
