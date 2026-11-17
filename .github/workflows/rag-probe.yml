@@ -9,9 +9,12 @@ on:
         description: "Comma-separated chat model tags"
         default: "qwen2.5:3b,qwen2.5:1.5b"
         required: true
+      app_ref:
+        description: "docs-rag-assistant commit to run the cases on"
+        default: "48d97f76b07196535cee40295f6fcb1b11489b9d"
+        required: true
 
 env:
-  APP_REF: 44bd6949e36cab52c4953ead1b3be73651c28b43
   EMBED_MODEL: qwen3-embedding:0.6b
   OLLAMA_VERSION: "0.40.16"
 
@@ -59,7 +62,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           repository: ramaraihan12/docs-rag-assistant
-          ref: ${{ env.APP_REF }}
+          ref: ${{ inputs.app_ref }}
           path: app
           persist-credentials: false
 
@@ -96,11 +99,22 @@ jobs:
           echo "PULL_SECONDS=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
           curl -s localhost:11434/api/tags | python3 -c "import json,sys; [print(m['name'], m['digest']) for m in json.load(sys.stdin)['models']]"
 
-      - name: run the probe
+      - name: run the cases, as the gate would
         working-directory: app
+        env:
+          PYTHONUNBUFFERED: "1"
         run: |
+          uv pip install --python .venv/bin/python --no-deps "$GITHUB_WORKSPACE"
           out="$GITHUB_WORKSPACE/results/$(echo '${{ matrix.model }}' | tr ':/' '__').json"
-          uv run python "$GITHUB_WORKSPACE/bench/rag_probe.py" --model "${{ matrix.model }}" --out "$out"
+          .venv/bin/evalgate run --dataset evals/rag_cases.jsonl             --adapter evalgate.adapters.docsrag:DocsRagAdapter --model "${{ matrix.model }}"             --side head --sha "$(git rev-parse HEAD)" --out "$out"
+          .venv/bin/python - "$out" <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
+          import json, sys
+          from evalgate.ragmetrics import summarize
+          d = json.load(open(sys.argv[1]))
+          print("model", d["model"], "wall_s", d["wall_s"], d["runner"])
+          print(summarize(d["cases"]))
+          print("correct", sum(c["correct"] for c in d["cases"]), "of", len(d["cases"]))
+          PY
           echo "install: uv ${UV_SECONDS}s, ollama ${OLLAMA_INSTALL_SECONDS}s, pull ${PULL_SECONDS}s" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: ollama log
