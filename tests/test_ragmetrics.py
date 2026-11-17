@@ -223,3 +223,15 @@ def test_rag_report_a_a_passes():
     head = rag_side("b" * 40, [True] * 30 + [False] * 10)
     result = compare(base, head)
     assert (result["b"], result["c"], result["verdict"]) == (0, 0, "PASS")
+
+
+def test_call_with_timeout():
+    import time
+
+    from evalgate.adapters.docsrag import call_with_timeout
+
+    assert call_with_timeout(lambda: 7, 5) == 7
+    with pytest.raises(ValueError):
+        call_with_timeout(lambda: (_ for _ in ()).throw(ValueError("boom")), 5)
+    with pytest.raises(TimeoutError):
+        call_with_timeout(lambda: time.sleep(5), 0.1)

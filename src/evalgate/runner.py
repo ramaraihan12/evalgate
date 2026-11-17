@@ -36,7 +36,11 @@ def grade(case: dict, outcome, gold_rows) -> bool:
     )
 
 
-def run_cases(cases: list[dict], adapter, log=print) -> list[dict]:
+def _say(message: str) -> None:
+    print(message, flush=True)  # CI buffers stdout, and a hung run should still show how far it got
+
+
+def run_cases(cases: list[dict], adapter, log=_say) -> list[dict]:
     """A model or SQL error on a case is a wrong answer. A GateError aborts the whole run."""
     if hasattr(adapter, "run_case"):
         return _run_graded_cases(cases, adapter, log)

@@ -16,6 +16,31 @@ from evalgate.errors import DatasetError, InfraError
 
 TABLE = "evalgate_chunks"
 ANSWER_CLIP = 600
+INGEST_TIMEOUT_S = 600  # the embedding client has no timeout of its own
+CASE_TIMEOUT_S = 240
+
+
+def call_with_timeout(fn, seconds: float):
+    """Run fn() in a daemon thread and give up after `seconds`, so a hung model server fails
+    the run instead of holding the runner until the job times out."""
+    import threading
+
+    box: dict = {}
+
+    def target():
+        try:
+            box["value"] = fn()
+        except BaseException as exc:  # handed back to the caller's thread
+            box["error"] = exc
+
+    thread = threading.Thread(target=target, daemon=True)
+    thread.start()
+    thread.join(seconds)
+    if thread.is_alive():
+        raise TimeoutError(f"no answer after {seconds:.0f}s")
+    if "error" in box:
+        raise box["error"]
+    return box["value"]
 
 
 def is_infra(exc: BaseException) -> bool:
@@ -94,11 +119,16 @@ class DocsRagAdapter:
             if not self.samples.is_dir():
                 raise DatasetError(f"no samples folder at {self.samples.resolve()}")
             start = time.perf_counter()
-            files = chunks = 0
-            for path in sorted(self.samples.iterdir()):
-                if path.is_file():
-                    result = self._kb.ingest_file(path)
-                    files, chunks = files + 1, chunks + result.chunks
+
+            def ingest():
+                files = chunks = 0
+                for path in sorted(self.samples.iterdir()):
+                    if path.is_file():
+                        result = self._kb.ingest_file(path)
+                        files, chunks = files + 1, chunks + result.chunks
+                return files, chunks
+
+            files, chunks = call_with_timeout(ingest, INGEST_TIMEOUT_S)
             self._ingest = {
                 "files": files,
                 "chunks": chunks,
@@ -107,7 +137,7 @@ class DocsRagAdapter:
                 "top_k": settings.top_k,
                 "similarity_cutoff": settings.similarity_cutoff,
             }
-            print(f"ingested {files} files, {chunks} chunks in {self._ingest['seconds']}s")
+            print(f"ingested {files} files, {chunks} chunks in {self._ingest['seconds']}s", flush=True)
             httpx.post(
                 f"{self.base_url}/api/generate",
                 json={"model": self.model, "prompt": "hi", "stream": False,
@@ -126,15 +156,20 @@ class DocsRagAdapter:
         from docs_rag.models import AnswerDelta, SourcesFound
 
         sources, parts = [], []
-        async for event in self._kb.astream_answer(question):
-            if isinstance(event, SourcesFound):
-                sources = [
-                    {"file_name": s.file_name, "page": s.page, "section": s.section,
-                     "score": s.score}
-                    for s in event.sources
-                ]
-            elif isinstance(event, AnswerDelta):
-                parts.append(event.text)
+
+        async def stream():
+            nonlocal sources
+            async for event in self._kb.astream_answer(question):
+                if isinstance(event, SourcesFound):
+                    sources = [
+                        {"file_name": s.file_name, "page": s.page, "section": s.section,
+                         "score": s.score}
+                        for s in event.sources
+                    ]
+                elif isinstance(event, AnswerDelta):
+                    parts.append(event.text)
+
+        await asyncio.wait_for(stream(), CASE_TIMEOUT_S)
         return sources, "".join(parts)
 
     def run_case(self, case: dict) -> dict:
