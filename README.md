@@ -33,6 +33,42 @@ at least 5 cases have to flip from right to wrong before the gate fails. A small
 is also not the model an app runs in production, so this tests the prompt, the schema notes and
 the pipeline, not the production model's quality.
 
+## M2: documents
+
+The second app is [docs-rag-assistant](https://github.com/ramaraihan12/docs-rag-assistant), a
+question answering app over PDF, Markdown and DOCX files. Its gate is the reusable workflow
+`.github/workflows/gate-rag.yml` and the adapter `src/evalgate/adapters/docsrag.py`.
+
+- Cases are lines in a `.jsonl` file: `id`, `question`, `file` and `page` or `section`, which is
+  where the answer is, or `"file": null` for a question the documents don't answer.
+- Each side gets its own runner with pgvector, Ollama and the app checked out at that commit. The
+  samples are indexed from that checkout with that checkout's code, so chunking, retrieval and the
+  prompt are all part of what is tested. Then the app answers every question the way its
+  `/api/ask` does.
+- No model grades the answers. For each case the gated result is:
+  - answerable: the expected passage is among the retrieved sources, and the answer cites at
+    least one source number, every cited number exists, and at least one cited source is the
+    expected passage;
+  - unanswerable: the answer cites no existing source and says the documents don't cover it (a
+    short list of English and Indonesian phrases, in `ragmetrics.py`, with tests).
+- The comment also shows, per side and not gated: retrieval hit rate, MRR, citation rate,
+  citations to sources that don't exist, and the abstain rate.
+- The comparison is the same as M1: paired on the cases, exact one-sided McNemar, fail when the
+  PR is less accurate and p < 0.05.
+- The gold is the expected file and page in the dataset, read from the merge commit for both
+  sides, and the grading code lives here. A PR can't change how it is graded except by editing
+  the dataset, and that edit shows up in the PR diff.
+
+The chat model is small on purpose so one side finishes in about ten minutes on a 4 vCPU runner:
+`qwen2.5:1.5b` for answers and `qwen3-embedding:0.6b` for retrieval (the app's own embedding
+model), both pinned by digest. With about 40 cases only large drops are detectable, and a 1.5B
+model is not the model the live app uses, so this watches chunking, retrieval and the prompt, not
+the quality of the production model's answers.
+
+Runners are not all the same: in my timing run the same job landed on an AMD EPYC 7763 and on a
+Xeon 6975P, and the 3B model took 26 s per question on the first. Both sides record the CPU and
+the comment warns when they differ.
+
 ## Use it
 
 ```yaml
@@ -55,8 +91,12 @@ so new commits on the base branch don't count against the PR. Both sides record 
 vCPU count and the Ollama version (pinned, 0.40.16 by default); the comment warns when they differ.
 The gold rows come from the adapter's own Postgres connection, not from the app under test.
 
+For documents, call `gate-rag.yml` the same way and also pass `embed_model` and
+`embed_model_digest`. See docs-rag-assistant's `.github/workflows/eval-gate.yml`.
+
 The adapter in `src/evalgate/adapters/sqlchat.py` knows how to run text-to-sql-chat. A new app
-needs an adapter with `preflight`, `ask`, `gold_rows` and `describe`.
+needs an adapter with `preflight`, `describe` and either `ask` and `gold_rows` (SQL) or
+`run_case` (the adapter grades a case itself, like `docsrag.py`).
 
 ## M0
 

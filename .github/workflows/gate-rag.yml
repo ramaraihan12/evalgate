@@ -1,0 +1,224 @@
+name: eval gate (documents)
+
+# Reusable, for docs-rag-assistant. Same shape as gate.yml: the caller runs it on the
+# pull_request event (never pull_request_target), the PR side is the merge commit GitHub builds
+# (github.sha) and the base side is its first parent. Each side gets its own runner, its own
+# pgvector database and its own Ollama, and indexes the samples with that checkout's own code
+# (chunking and prompt included) before it answers the dataset's questions. The dataset is read
+# from the merge commit for both sides, and it is the only gold: expected files and pages.
+
+on:
+  workflow_call:
+    inputs:
+      app_repo:
+        description: "owner/name of the repo the pull request targets"
+        type: string
+        required: true
+      pr_number:
+        type: number
+        required: true
+      dataset:
+        description: "path of the cases file inside the app repo, read from the merge commit"
+        type: string
+        default: evals/rag_cases.jsonl
+      adapter:
+        type: string
+        default: evalgate.adapters.docsrag:DocsRagAdapter
+      model:
+        description: "chat model, an Ollama tag"
+        type: string
+        required: true
+      model_digest:
+        description: "digest of the chat model as Ollama reports it. The job fails if the pull differs."
+        type: string
+        required: true
+      embed_model:
+        description: "embedding model, an Ollama tag. It must be the one the app is configured for."
+        type: string
+        default: qwen3-embedding:0.6b
+      embed_model_digest:
+        type: string
+        required: true
+      ollama_version:
+        description: "pinned, so both sides and every run use the same server"
+        type: string
+        default: "0.40.16"
+      evalgate_repo:
+        type: string
+        default: ramaraihan12/evalgate
+      evalgate_ref:
+        type: string
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    name: run (${{ matrix.side }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        side: [base, head]
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: rag_assistant
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.evalgate_repo }}
+          ref: ${{ inputs.evalgate_ref }}
+          path: evalgate
+
+      # The merge commit lives in the app repo even for a fork PR. Depth 2 brings its parents.
+      - name: app code, merge commit
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.app_repo }}
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          path: app
+          persist-credentials: false
+
+      - name: pick this side
+        id: commit
+        run: |
+          if [ "${{ matrix.side }}" = "base" ]; then
+            git -C app checkout --detach HEAD^1
+          fi
+          echo "sha=$(git -C app rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: cases from the merge commit
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.app_repo }}
+          ref: ${{ github.sha }}
+          path: cases
+          sparse-checkout: ${{ inputs.dataset }}
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "0.12.23"
+
+      - name: install the app
+        working-directory: app
+        run: |
+          uv sync --locked
+          uv pip install --python .venv/bin/python --no-deps ../evalgate
+
+      - name: check the expected locations
+        if: matrix.side == 'head'
+        working-directory: app
+        run: .venv/bin/evalgate validate --dataset "$GITHUB_WORKSPACE/cases/${{ inputs.dataset }}" --adapter "${{ inputs.adapter }}"
+
+      - name: install ollama
+        run: |
+          for i in 1 2 3; do
+            curl -fsSL https://ollama.com/install.sh | OLLAMA_VERSION="${{ inputs.ollama_version }}" sh && break
+            sleep 10
+          done
+          sudo systemctl stop ollama || true
+          ollama --version 2>&1 | tee ollama-version.txt
+          grep -qF "${{ inputs.ollama_version }}" ollama-version.txt || { echo "::error::wrong ollama version"; exit 1; }
+
+      - name: model cache
+        uses: actions/cache@v5
+        with:
+          path: ~/ollama-models
+          key: ollama-rag-${{ inputs.model }}-${{ inputs.model_digest }}-${{ inputs.embed_model }}-${{ inputs.embed_model_digest }}
+
+      - name: start ollama and pull the models
+        run: |
+          mkdir -p ~/ollama-models
+          OLLAMA_MODELS=$HOME/ollama-models OLLAMA_KEEP_ALIVE=30m nohup ollama serve > ollama.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf localhost:11434/api/version && break; sleep 1; done
+          OLLAMA_MODELS=$HOME/ollama-models ollama pull "${{ inputs.embed_model }}"
+          OLLAMA_MODELS=$HOME/ollama-models ollama pull "${{ inputs.model }}"
+          app/.venv/bin/evalgate check-model --model "${{ inputs.embed_model }}" --digest "${{ inputs.embed_model_digest }}"
+          app/.venv/bin/evalgate check-model --model "${{ inputs.model }}" --digest "${{ inputs.model_digest }}"
+
+      # Indexing the samples happens inside this step, with the checkout's own code.
+      - name: index the samples and run the cases
+        working-directory: app
+        env:
+          EMBED_MODEL: ${{ inputs.embed_model }}
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/rag_assistant
+        run: |
+          .venv/bin/evalgate run \
+            --dataset "$GITHUB_WORKSPACE/cases/${{ inputs.dataset }}" \
+            --adapter "${{ inputs.adapter }}" \
+            --model "${{ inputs.model }}" \
+            --side "${{ matrix.side }}" \
+            --sha "${{ steps.commit.outputs.sha }}" \
+            --out "$GITHUB_WORKSPACE/results/${{ matrix.side }}.json"
+
+      - name: ollama log
+        if: always()
+        run: tail -n 30 ollama.log || true
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: result-${{ matrix.side }}
+          path: results/${{ matrix.side }}.json
+
+  compare:
+    needs: run
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.evalgate_repo }}
+          ref: ${{ inputs.evalgate_ref }}
+          path: evalgate
+
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: result-*
+          path: parts
+          merge-multiple: true
+
+      - name: compare base and PR
+        run: |
+          export PYTHONPATH=evalgate/src
+          python3 -m evalgate compare --base parts/base.json --head parts/head.json \
+            --out-md report.md --out-json verdict.json
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: sticky comment
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          PYTHONPATH=evalgate/src python3 -m evalgate comment \
+            --repo "${{ github.repository }}" --pr "${{ inputs.pr_number }}" --body-file report.md
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: gate-report
+          path: |
+            report.md
+            verdict.json
+
+      - name: set the result
+        run: PYTHONPATH=evalgate/src python3 -m evalgate verdict --file verdict.json
