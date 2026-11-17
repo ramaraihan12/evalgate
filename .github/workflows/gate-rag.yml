@@ -158,7 +158,9 @@ jobs:
       # Indexing the samples happens inside this step, with the checkout's own code.
       - name: index the samples and run the cases
         working-directory: app
+        timeout-minutes: 20
         env:
+          PYTHONUNBUFFERED: "1"
           EMBED_MODEL: ${{ inputs.embed_model }}
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/rag_assistant
         run: |

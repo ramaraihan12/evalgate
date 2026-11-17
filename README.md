@@ -59,15 +59,25 @@ question answering app over PDF, Markdown and DOCX files. Its gate is the reusab
   sides, and the grading code lives here. A PR can't change how it is graded except by editing
   the dataset, and that edit shows up in the PR diff.
 
-The chat model is small on purpose so one side finishes in about ten minutes on a 4 vCPU runner:
-`qwen2.5:1.5b` for answers and `qwen3-embedding:0.6b` for retrieval (the app's own embedding
-model), both pinned by digest. With about 40 cases only large drops are detectable, and a 1.5B
-model is not the model the live app uses, so this watches chunking, retrieval and the prompt, not
-the quality of the production model's answers.
+The chat model is small on purpose so one side finishes in about 7 to 12 minutes on a 4 vCPU runner, install included
+(`qwen3:1.7b` for answers and `qwen3-embedding:0.6b` for retrieval, the app's own embedding
+model, both pinned by digest). I picked it by running the real 40 cases on a few candidates:
 
-Runners are not all the same: in my timing run the same job landed on an AMD EPYC 7763 and on a
-Xeon 6975P, and the 3B model took 26 s per question on the first. Both sides record the CPU and
-the comment warns when they differ.
+| chat model | passed | citation rate | abstain rate | one side, whole job |
+|---|---|---|---|---|
+| qwen2.5:1.5b | 8/40 | 12% | 4/6 | 7 min |
+| qwen2.5:3b | 27/40 | 71% | 3/6 | 8 min |
+| llama3.2:3b | 27/40 | 62% | 6/6 | 11 min |
+| qwen3:1.7b | 37/40 | 91% | 6/6 | 7 min |
+
+(Retrieval hit rate was 100% for all of them. The 1.5B model answered correctly but almost never
+cited a source, so it would have measured its habits and not the app.) With about 40 cases only
+large drops are detectable, and a 1.7B model is not the model the live app uses, so this watches
+chunking, retrieval and the prompt, not the quality of the production model's answers.
+
+Runners are not all the same: in my timing runs the same job landed on an AMD EPYC 7763, an EPYC
+9V74 and a Xeon 6975P, and the 3B model took 26 s per question on the first and about 9 s on the
+last. Both sides record the CPU and the comment warns when they differ.
 
 ## Use it
 
