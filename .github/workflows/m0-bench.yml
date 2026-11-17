@@ -73,7 +73,7 @@ jobs:
 
       - name: install ollama
         run: |
-          curl -fsSL https://ollama.com/install.sh | sh
+          for i in 1 2 3; do curl -fsSL https://ollama.com/install.sh | sh && break; sleep 10; done
           sudo systemctl stop ollama || true
           ollama --version
 
