@@ -1,6 +1,6 @@
 [project]
 name = "evalgate"
-version = "0.1.0"
+version = "0.2.0"
 description = "A small eval gate for LLM apps: run known questions on a pull request and on its base, and compare."
 readme = "README.md"
 license = "MIT"
