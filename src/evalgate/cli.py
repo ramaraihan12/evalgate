@@ -1,6 +1,8 @@
 import argparse
 import json
 import os
+import re
+import subprocess
 import sys
 import time
 import urllib.request
@@ -23,12 +25,39 @@ def _digest_of(base_url: str, model: str) -> str:
     raise InfraError(f"{model} is not pulled on {base_url}")
 
 
+def digest_matches(got: str, expected: str) -> bool:
+    """Exact match of a full 64-hex digest. A prefix, an empty or a short value is an error."""
+    if not re.fullmatch(r"[0-9a-f]{64}", expected or ""):
+        raise InfraError("the pinned digest must be the full 64 hex characters")
+    return got == expected
+
+
+def _cpu_model() -> str:
+    try:
+        out = subprocess.run(["lscpu"], capture_output=True, text=True, timeout=10).stdout
+        for line in out.splitlines():
+            if line.startswith("Model name:"):
+                return line.split(":", 1)[1].strip()
+    except OSError:
+        pass
+    return "unknown"
+
+
+def runner_info(base_url: str) -> dict:
+    try:
+        with urllib.request.urlopen(f"{base_url}/api/version", timeout=10) as resp:
+            ollama = json.loads(resp.read()).get("version", "unknown")
+    except (OSError, ValueError):
+        ollama = "unknown"
+    return {"cpu_model": _cpu_model(), "vcpus": os.cpu_count(), "ollama": ollama}
+
+
 def cmd_check_model(args) -> int:
     try:
         got = _digest_of(args.base_url, args.model)
     except OSError as exc:
         raise InfraError(f"can't reach Ollama at {args.base_url}: {exc}") from exc
-    if not got.startswith(args.digest):
+    if not digest_matches(got, args.digest):
         raise InfraError(f"{args.model} digest is {got}, expected {args.digest}. Refusing to run.")
     print(f"{args.model} digest {got[:12]} matches")
     return 0
@@ -50,9 +79,11 @@ def cmd_run(args) -> int:
         adapter_info=adapter.describe(),
         cases=results,
         wall_s=time.perf_counter() - start,
+        runner=runner_info(args.base_url),
     )
     right = sum(c["correct"] for c in data["cases"])
     print(f"{args.side}: {right}/{len(results)} correct in {data['wall_s']}s")
+    print(f"runner: {data['runner']}")
     return 0
 
 

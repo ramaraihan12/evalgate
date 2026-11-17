@@ -117,3 +117,30 @@ def test_grade_no_sql_and_rows():
     assert grade(CASES[0], Outcome("ok", [(1,)], "SELECT 1"), [(1,)])
     assert not grade(CASES[0], Outcome("no_sql"), [(1,)])
     assert not grade(CASES[0], Outcome("blocked", None, "x"), [(1,)])
+
+
+def test_digest_must_match_exactly():
+    from evalgate.cli import digest_matches
+
+    full = "f72c60cabf6237b07f6e632b2c48d533cef25eda2efbd34bed21c5e9c01e6225"
+    assert digest_matches(full, full)
+    assert not digest_matches(full, "0" * 64)
+    for bad in ["", "f72c60", full[:63], full + "0", full.upper()]:
+        with pytest.raises(InfraError):
+            digest_matches(full, bad)
+
+
+RUNNER = {"cpu_model": "AMD EPYC 7763 64-Core Processor", "vcpus": 4, "ollama": "0.40.16"}
+
+
+def test_comment_warns_only_when_runners_differ():
+    from evalgate.report import runner_warning
+
+    base = {**side("a" * 40, [True] * 5), "runner": RUNNER}
+    same = {**side("b" * 40, [True] * 5), "runner": dict(RUNNER)}
+    other = {**side("b" * 40, [True] * 5), "runner": {**RUNNER, "cpu_model": "Intel Xeon"}}
+    assert runner_warning(base, same) is None
+    assert "different runners" in runner_warning(base, other)
+    text = render(compare(base, other), base, other)
+    assert "different runners" in text and "Intel Xeon" in text and "0.40.16" in text
+    assert "different runners" not in render(compare(base, same), base, same)

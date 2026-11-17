@@ -30,6 +30,25 @@ def _why(case: dict) -> str:
     }.get(case["status"], case["status"])
 
 
+def _runner_text(info: dict) -> str:
+    if not info:
+        return "not recorded"
+    return f"{info.get('cpu_model', '?')}, {info.get('vcpus', '?')} vCPU, Ollama {info.get('ollama', '?')}"
+
+
+def runner_warning(base: dict, head: dict) -> str | None:
+    """One line when the two sides ran on different hardware or a different Ollama."""
+    a, b = base.get("runner") or {}, head.get("runner") or {}
+    if not a or not b:
+        return None
+    if all(a.get(k) == b.get(k) for k in ("cpu_model", "vcpus", "ollama")):
+        return None
+    return (
+        "Warning: the two sides ran on different runners (CPU, vCPU count or Ollama version), "
+        "so a few differences may be noise from the hardware. Re-run the check if the result is close."
+    )
+
+
 def render(result: dict, base: dict, head: dict) -> str:
     n = result["n"]
     verdict = result["verdict"]
@@ -49,8 +68,17 @@ def render(result: dict, base: dict, head: dict) -> str:
         f"{result['p_value']:.3f}. The gate fails when the PR is less accurate than the base "
         f"and p < {ALPHA}.",
     ]
+    warning = runner_warning(base, head)
+    if warning:
+        lines += ["", warning]
     if result["verdict"] == "FAIL":
         lines += ["", "This PR answers fewer of the cases correctly than its base, by more than noise explains."]
+
+    lines += [
+        "",
+        f"Runner, base: {_runner_text(base.get('runner'))}.  ",
+        f"Runner, this PR: {_runner_text(head.get('runner'))}.",
+    ]
 
     flipped = [("regressed", i) for i in result["regressed"]] + [("fixed", i) for i in result["fixed"]]
     if flipped:

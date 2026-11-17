@@ -1,7 +1,9 @@
 name: eval gate
 
-# Reusable. The caller runs it on the pull_request event (never pull_request_target) and
-# passes the base and head commits. Base and PR run as two parallel jobs on separate runners,
+# Reusable. The caller runs it on the pull_request event (never pull_request_target). The PR
+# side is the merge commit GitHub builds for the PR (github.sha, refs/pull/N/merge, which also
+# works for forks) and the base side is that commit's first parent, so main moving on after the
+# PR was opened can't count against it. Base and PR run as two parallel jobs on separate runners,
 # so they never share one Ollama server and its prompt cache.
 
 on:
@@ -11,21 +13,11 @@ on:
         description: "owner/name of the repo the pull request targets"
         type: string
         required: true
-      head_repo:
-        description: "owner/name the PR branch lives in (differs for forks)"
-        type: string
-        required: true
-      base_sha:
-        type: string
-        required: true
-      head_sha:
-        type: string
-        required: true
       pr_number:
         type: number
         required: true
       dataset:
-        description: "path of the cases file inside the app repo, read from the PR head"
+        description: "path of the cases file inside the app repo, read from the merge commit"
         type: string
         default: evals/sql_cases.jsonl
       adapter:
@@ -39,6 +31,10 @@ on:
         description: "digest of the tag as Ollama reports it. The job fails if the pull differs."
         type: string
         required: true
+      ollama_version:
+        description: "pinned, so both sides and every run use the same server"
+        type: string
+        default: "0.40.16"
       evalgate_repo:
         type: string
         default: ramaraihan12/evalgate
@@ -54,16 +50,12 @@ jobs:
     name: run (${{ matrix.side }})
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - side: base
-            repo: ${{ inputs.app_repo }}
-            sha: ${{ inputs.base_sha }}
-          - side: head
-            repo: ${{ inputs.head_repo }}
-            sha: ${{ inputs.head_sha }}
+        side: [base, head]
 
     services:
       postgres:
@@ -86,19 +78,29 @@ jobs:
           ref: ${{ inputs.evalgate_ref }}
           path: evalgate
 
-      - name: app code for this side
+      # The merge commit lives in the app repo even for a fork PR. Depth 2 brings its parents.
+      - name: app code, merge commit
         uses: actions/checkout@v7
         with:
-          repository: ${{ matrix.repo }}
-          ref: ${{ matrix.sha }}
+          repository: ${{ inputs.app_repo }}
+          ref: ${{ github.sha }}
+          fetch-depth: 2
           path: app
           persist-credentials: false
 
-      - name: cases from the PR head
+      - name: pick this side
+        id: commit
+        run: |
+          if [ "${{ matrix.side }}" = "base" ]; then
+            git -C app checkout --detach HEAD^1
+          fi
+          echo "sha=$(git -C app rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: cases from the merge commit
         uses: actions/checkout@v7
         with:
-          repository: ${{ inputs.head_repo }}
-          ref: ${{ inputs.head_sha }}
+          repository: ${{ inputs.app_repo }}
+          ref: ${{ github.sha }}
           path: cases
           sparse-checkout: ${{ inputs.dataset }}
           sparse-checkout-cone-mode: false
@@ -122,9 +124,13 @@ jobs:
 
       - name: install ollama
         run: |
-          for i in 1 2 3; do curl -fsSL https://ollama.com/install.sh | sh && break; sleep 10; done
+          for i in 1 2 3; do
+            curl -fsSL https://ollama.com/install.sh | OLLAMA_VERSION="${{ inputs.ollama_version }}" sh && break
+            sleep 10
+          done
           sudo systemctl stop ollama || true
-          ollama --version
+          ollama --version 2>&1 | tee ollama-version.txt
+          grep -qF "${{ inputs.ollama_version }}" ollama-version.txt || { echo "::error::wrong ollama version"; exit 1; }
 
       - name: model cache
         uses: actions/cache@v5
@@ -147,7 +153,7 @@ jobs:
             --adapter "${{ inputs.adapter }}" \
             --model "${{ inputs.model }}" \
             --side "${{ matrix.side }}" \
-            --sha "${{ matrix.sha }}" \
+            --sha "${{ steps.commit.outputs.sha }}" \
             --out "results/${{ matrix.side }}.json"
 
       - name: ollama log

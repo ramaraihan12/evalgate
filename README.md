@@ -14,10 +14,10 @@ I'm building it in small milestones. The first real user is
   `"expect": "no_sql"` for a question the data can't answer. An answer counts as right when the
   rows match the gold query's rows (row order only matters for top-N queries).
 - The model is a small Ollama model on the GitHub runner, pinned by tag and digest. The job
-  fails if the pulled digest isn't the pinned one.
+  fails if the pulled digest isn't the full pinned one.
 - Base and PR run as two parallel jobs on separate runners, each with its own Postgres, its own
   `setup` from that commit, and its own Ollama, so they never share a prompt cache. The cases
-  come from the PR head for both sides.
+  come from the PR merge commit for both sides.
 - Accuracy is shown per side with a Wilson 95% interval. The comparison is paired on the same
   cases: `b` = right on base and wrong on the PR, `c` = the other way round. The gate fails when
   the PR is less accurate and the exact one-sided McNemar p-value (a binomial on `b + c`) is
@@ -38,16 +38,22 @@ the pipeline, not the production model's quality.
 ```yaml
 jobs:
   gate:
-    uses: ramaraihan12/evalgate/.github/workflows/gate.yml@main
+    uses: ramaraihan12/evalgate/.github/workflows/gate.yml@v0.1.0
+    permissions:
+      contents: read
+      pull-requests: write
     with:
       app_repo: ${{ github.repository }}
-      head_repo: ${{ github.event.pull_request.head.repo.full_name }}
-      base_sha: ${{ github.event.pull_request.base.sha }}
-      head_sha: ${{ github.event.pull_request.head.sha }}
       pr_number: ${{ github.event.pull_request.number }}
       model: qwen2.5-coder:3b
       model_digest: f72c60cabf6237b07f6e632b2c48d533cef25eda2efbd34bed21c5e9c01e6225
+      evalgate_ref: v0.1.0
 ```
+
+The PR side is the merge commit GitHub builds for the PR and the base side is its first parent,
+so new commits on the base branch don't count against the PR. Both sides record the CPU, the
+vCPU count and the Ollama version (pinned, 0.40.16 by default); the comment warns when they differ.
+The gold rows come from the adapter's own Postgres connection, not from the app under test.
 
 The adapter in `src/evalgate/adapters/sqlchat.py` knows how to run text-to-sql-chat. A new app
 needs an adapter with `preflight`, `ask`, `gold_rows` and `describe`.

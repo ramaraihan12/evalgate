@@ -63,7 +63,7 @@ def run_cases(cases: list[dict], adapter, log=print) -> list[dict]:
     return results
 
 
-def write_result(path, *, side, sha, model, digest, adapter_info, cases, wall_s) -> dict:
+def write_result(path, *, side, sha, model, digest, adapter_info, cases, wall_s, runner=None) -> dict:
     data = {
         "version": 1,
         "side": side,
@@ -71,6 +71,7 @@ def write_result(path, *, side, sha, model, digest, adapter_info, cases, wall_s)
         "model": model,
         "model_digest": digest,
         "adapter": adapter_info,
+        "runner": runner or {},
         "wall_s": round(wall_s, 1),
         "finished_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "cases": cases,

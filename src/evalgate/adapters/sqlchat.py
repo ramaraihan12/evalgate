@@ -1,13 +1,22 @@
 """Adapter for text-to-sql-chat. It runs inside that app's environment, so `sqlchat` imports.
 
 The adapter lives here and not in the app, so a pull request can't change how it is graded.
+That includes the gold rows: they come from this adapter's own Postgres connection, not from
+the app's Database or Settings, which belong to the checkout under test.
 """
+
+import os
 
 import httpx
 import psycopg
 
 from evalgate.adapters import Outcome
 from evalgate.errors import DatasetError, InfraError
+
+
+# The reader role `sqlchat setup` creates. Override with EVALGATE_GOLD_DSN.
+GOLD_DSN = "postgresql://sales_reader:sales_reader@localhost:5432/text_to_sql"
+GOLD_OPTIONS = "-c statement_timeout=5000 -c timezone=Asia/Jakarta"
 
 
 def _chain(exc: BaseException):
@@ -38,26 +47,26 @@ class SqlChatAdapter:
         self.model = model
         self.base_url = base_url
         self._pipeline = None
-        self._db = None
+        self._gold_dsn = os.environ.get("EVALGATE_GOLD_DSN", GOLD_DSN)
 
     def _settings(self):
         from sqlchat.config import Settings
 
         return Settings(llm_provider="ollama", llm_model=self.model, ollama_base_url=self.base_url)
 
-    def _database(self):
-        if self._db is None:
-            from sqlchat.db import Database
-
-            settings = self._settings()
-            self._db = Database(settings.database_url, settings.statement_timeout_ms)
-        return self._db
+    def _gold_query(self, sql: str) -> list:
+        """Read-only transaction on the adapter's own connection."""
+        with psycopg.connect(self._gold_dsn, options=GOLD_OPTIONS, connect_timeout=5) as conn:
+            conn.read_only = True
+            with conn.cursor() as cur:
+                cur.execute(sql)
+                return cur.fetchall()
 
     def preflight(self) -> None:
         """Fail fast if a service is down, and load the model so case 1 isn't billed for it."""
         try:
             httpx.get(f"{self.base_url}/api/version", timeout=10).raise_for_status()
-            self._database().query("SELECT 1")
+            self._gold_query("SELECT 1")
             from sqlchat.pipeline import build_pipeline
 
             self._pipeline = build_pipeline(self._settings())
@@ -75,7 +84,7 @@ class SqlChatAdapter:
 
     def gold_rows(self, sql: str) -> list:
         try:
-            return self._database().query(sql).rows
+            return self._gold_query(sql)
         except Exception as exc:
             if is_infra(exc):
                 raise InfraError(f"database unreachable: {exc}") from exc
