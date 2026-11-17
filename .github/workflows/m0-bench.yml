@@ -9,7 +9,7 @@ on:
         required: true
 
 env:
-  APP_REF: f06ca72
+  APP_REF: f06ca72996bbed1e16a81d36ef485d5a8ab0ce56
 
 jobs:
   plan:
