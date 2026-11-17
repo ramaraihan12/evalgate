@@ -11,7 +11,7 @@ dependencies = []
 evalgate = "evalgate.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "httpx>=0.28"]
 
 [build-system]
 requires = ["hatchling>=1.27"]
