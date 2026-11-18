@@ -113,6 +113,8 @@ def fetch_observations(host, public_key, secret_key, since, until, fetch=_get) -
         "fromStartTime": since.strftime(stamp),
         "toStartTime": until.strftime(stamp),
         "environment": ENVIRONMENT,
+        "type": "GENERATION",
+        "name": "answer",
         "limit": str(PAGE_LIMIT),
         "fields": "core,basic,io,metadata",
     }

@@ -121,32 +121,47 @@ For `qwen2.5-coder:3b`, 12 questions took about 95 seconds.
 
 ## Weekly harvest
 
-Every Monday at 03:00 UTC the `harvest` workflow (also runnable by hand) turns real traffic into
-candidates for the eval sets.
+The `harvest` workflow turns real traffic into candidates for the eval sets. The code is public
+here, but the review queue, the weekly schedule and the Langfuse read secrets live in a private
+repo that calls this workflow, so redacted visitor questions are never published. The workflow is
+reusable only (`workflow_call`); it has no schedule of its own.
 
 **What it reads.** The last 7 days of root `answer` generations from Langfuse Cloud
 (`environment=production`, v2 observations API, read-only Viewer key), kept only when the app
 set `metadata.flags` (for example `no_sources`, `no_citation`, `slow`, `error`). The apps are
-`docs-rag` and `sql-chat`. Questions already in the review queue, in
+`docs-rag` and `sql-chat`. Questions already in the caller's review queue, in
 `evals/rag_cases.jsonl` (docs-rag-assistant) or in `evals/sql_cases.jsonl` (text-to-sql-chat) are
 skipped, matched on the lowercased, whitespace-collapsed question. At most 50 rows per app per
 run are kept and the log says how many were dropped. Test and `synthetic:` traces are never
 written.
 
-**What it writes.** `review-queue/<app>/<year>-W<week>.jsonl`, one row per question:
-`trace_id`, `observation_id`, `app`, `question`, `answer_excerpt` (300 characters at most),
-`flags`, and empty `label`, `expected`, `note` for a human to fill in. New rows go on a
-`harvest/<year>-W<week>` branch and a pull request. With nothing new there is no PR.
+**What it writes.** `review-queue/<app>/<year>-W<week>.jsonl` in the caller repo, one row per
+question: `trace_id`, `observation_id`, `app`, `question`, `answer_excerpt` (300 characters at
+most), `flags`, and empty `label`, `expected`, `note` for a human to fill in. New rows go on a
+`harvest/<year>-W<week>` branch (`harvest/<year>-W<week>-<run number>` if that branch already
+exists) and a pull request. With nothing new there is no PR.
 
 **Privacy.** The apps redact emails, phone numbers, long digit runs and token-like strings
 before a trace leaves them, so Langfuse only ever holds redacted text. Rows carry no IPs or
-headers. This repo is public, so only that redacted text would land here, which does not match
-the apps' notice that logs are never published. Until that is settled (a private queue repo, or a
-changed notice) the workflow has no schedule and runs only by hand. Do not run it against
-production traces on this repo.
+headers, and they are written only to the private caller repo.
 
-Needs the secrets `LANGFUSE_HOST`, `LANGFUSE_READ_PUBLIC_KEY` and `LANGFUSE_READ_SECRET_KEY`,
-and "Allow GitHub Actions to create pull requests" turned on. Locally:
+**Calling it.** In the private repo, `.github/workflows/harvest.yml`:
+
+```yaml
+name: weekly harvest
+on:
+  schedule: [{cron: "0 3 * * 1"}]
+  workflow_dispatch:
+jobs:
+  harvest:
+    permissions: {contents: write, pull-requests: write}
+    uses: ramaraihan12/evalgate/.github/workflows/harvest.yml@<tag>
+    with: {evalgate_ref: <tag>}
+    secrets: inherit
+```
+
+The private repo needs the secrets `LANGFUSE_HOST`, `LANGFUSE_READ_PUBLIC_KEY` and
+`LANGFUSE_READ_SECRET_KEY`, and "Allow GitHub Actions to create pull requests" turned on. Locally:
 `uv run evalgate harvest --out review-queue` with the same three variables set.
 
 ## Develop

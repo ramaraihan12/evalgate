@@ -132,7 +132,8 @@ def test_fetch_follows_cursor_and_sends_params():
     got = harvest.fetch_observations("https://lf.example", "pk", "sk", NOW, NOW, net)
     assert [o["id"] for o in got] == ["a", "b"]
     first, second = net.urls[0][0], net.urls[1][0]
-    assert "environment=production" in first and "fields=core%2Cbasic%2Cio%2Cmetadata" in first
+    assert "environment=production" in first and "type=GENERATION" in first and "name=answer" in first
+    assert "fields=core%2Cbasic%2Cio%2Cmetadata" in first
     assert "cursor=" not in first and "cursor=c1" in second
     assert net.urls[0][1]["Authorization"].startswith("Basic ")
 
