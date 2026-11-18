@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>evalgate results</title>
+<meta name="description" content="Gate results for the apps evalgate guards: accuracy on the base and on each pull request, with the verdict.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="wrap">
+  <p class="kicker">evalgate</p>
+  <h1>Does this pull request make the app worse?</h1>
+  <p class="lede">evalgate runs a fixed set of questions with known answers on the base commit and on the
+  pull request's merge commit, compares the two on the same cases, and fails the PR when it is
+  measurably less accurate. This page keeps every gate run for the two apps that use it.</p>
+</header>
+
+<main class="wrap">
+  <section id="headline" aria-labelledby="headline-title" hidden>
+    <h2 id="headline-title" class="kicker">A pull request the gate stopped</h2>
+    <div class="card" id="headline-card"></div>
+  </section>
+
+  <div id="apps"></div>
+  <p id="load-error" role="alert" hidden>Could not load data/runs.json.</p>
+
+  <section aria-labelledby="limits-title">
+    <h2 id="limits-title">What it can't catch</h2>
+    <ul class="plain">
+      <li><strong>Small drops.</strong> With about 50 cases only big drops are detectable. Even if
+      nothing improved, at least 5 cases have to flip from right to wrong before the gate can fail.</li>
+      <li><strong>A different model.</strong> It gates with a small local Ollama model, not the
+      model the app runs in production. It tests the prompt, the schema notes, retrieval and the
+      pipeline, not the production model's quality.</li>
+      <li><strong>Noisy runners.</strong> Runner CPUs differ and can flip a couple of cases even at
+      temperature 0. Runs of the same code against itself have shown b = c = 2.</li>
+      <li><strong>A guess after an abstention.</strong> In docs-rag, an answer that says the
+      documents don't cover it and then guesses in the next sentence still passes the rule-based
+      check. Catching that needs an LLM judge, and there is no judge yet because there are no human
+      labels to calibrate it against.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="prod-title">
+    <h2 id="prod-title">Production traffic</h2>
+    <p>About 25% of real questions to the live apps are sampled, redacted and sent to Langfuse. A
+    weekly job queues the flagged ones in a private repo, where I label them before any becomes a
+    new eval case. Nothing a visitor typed is published here.</p>
+  </section>
+</main>
+
+<footer class="wrap">
+  <p><a href="https://github.com/ramaraihan12/evalgate">github.com/ramaraihan12/evalgate</a></p>
+</footer>
+<script src="app.js"></script>
+</body>
+</html>
