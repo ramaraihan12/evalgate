@@ -49,15 +49,20 @@ question answering app over PDF, Markdown and DOCX files. Its gate is the reusab
   - answerable: the expected passage is among the retrieved sources, and the answer cites at
     least one source number, every cited number exists, and at least one cited source is the
     expected passage;
-  - unanswerable: the answer cites no existing source and says the documents don't cover it (a
-    short list of English and Indonesian phrases, in `ragmetrics.py`, with tests).
+  - unanswerable: the answer says the documents don't cover it and cites no retrieved source. A
+    clause counts when it refers to the documents, has a negation and doesn't attribute the claim
+    to them ("according to the documents, ..." does not count). A short list of English and
+    Indonesian phrases, in `ragmetrics.py`, with tests.
 - The comment also shows, per side and not gated: retrieval hit rate, MRR, citation rate,
-  citations to sources that don't exist, and the abstain rate.
+  citations per answer, the share of citations pointing at a file other than the expected one,
+  citations to sources that don't exist, and the abstain rate. The comment also lists dataset
+  cases the PR removed, changed or added.
 - The comparison is the same as M1: paired on the cases, exact one-sided McNemar, fail when the
   PR is less accurate and p < 0.05.
 - The gold is the expected file and page in the dataset, read from the merge commit for both
-  sides, and the grading code lives here. A PR can't change how it is graded except by editing
-  the dataset, and that edit shows up in the PR diff.
+  sides, and the grading code lives here. The gate guards against honest regressions. The PR's
+  own code runs on the head side, so changes to `.github/workflows/` and `evals/` need a human
+  review.
 
 The chat model is small on purpose so one side finishes in about 7 to 12 minutes on a 4 vCPU runner, install included
 (`qwen3:1.7b` for answers and `qwen3-embedding:0.6b` for retrieval, the app's own embedding

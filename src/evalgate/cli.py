@@ -12,7 +12,7 @@ from evalgate.adapters import load_adapter
 from evalgate.errors import GateError, InfraError
 from evalgate.gate import compare
 from evalgate.github import post_or_update
-from evalgate.report import render
+from evalgate.report import dataset_changes, render
 from evalgate.runner import load_cases, run_cases, write_result
 
 
@@ -133,6 +133,17 @@ def cmd_comment(args) -> int:
     return 0
 
 
+def cmd_dataset_diff(args) -> int:
+    base = Path(args.base)
+    base_text = base.read_text(encoding="utf-8") if base.is_file() and base.stat().st_size else None
+    head_text = Path(args.head).read_text(encoding="utf-8")
+    line = dataset_changes(base_text, head_text)
+    print(line)
+    with open(args.append_to, "a", encoding="utf-8") as fh:
+        fh.write(chr(10) + line + chr(10))
+    return 0
+
+
 def cmd_verdict(args) -> int:
     verdict = json.loads(Path(args.file).read_text(encoding="utf-8"))["verdict"]
     print(f"verdict: {verdict}")
@@ -176,6 +187,12 @@ def main(argv: list[str] | None = None) -> int:
     com.add_argument("--pr", required=True, type=int)
     com.add_argument("--body-file", required=True)
     com.set_defaults(func=cmd_comment)
+
+    dd = sub.add_parser("dataset-diff", help="append the dataset changes between base and PR to the report")
+    dd.add_argument("--base", required=True, help="the base dataset; a missing or empty file means none")
+    dd.add_argument("--head", required=True)
+    dd.add_argument("--append-to", required=True)
+    dd.set_defaults(func=cmd_dataset_diff)
 
     ver = sub.add_parser("verdict", help="exit 1 when the verdict file says FAIL")
     ver.add_argument("--file", required=True)

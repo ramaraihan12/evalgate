@@ -1,10 +1,10 @@
 """Adapter for docs-rag-assistant. It runs inside that app's environment, so `docs_rag` imports.
 
-The adapter lives here and not in the app, so a pull request can't change how it is graded.
-The gold is the expected file and page or section in the dataset, so the only way a PR can
-change the grading is by editing the dataset. Ingestion, chunking, retrieval and the prompt all
-come from the checkout under test: `preflight` indexes that checkout's `samples/` into a
-scratch table with its own code.
+The adapter and the grading live here and not in the app. The gold is the expected file and
+page or section in the dataset. Ingestion, chunking, retrieval and the prompt all come from the
+checkout under test: `preflight` indexes that checkout's `samples/` into a scratch table with
+its own code. The gate guards against honest regressions. The PR's code runs on the head side,
+so changes to .github/workflows/ and evals/ need a human review.
 """
 
 import asyncio
@@ -97,7 +97,12 @@ class DocsRagAdapter:
     def _settings(self):
         from docs_rag.config import Settings
 
-        return Settings(llm_provider="ollama", llm_model=self.model, ollama_base_url=self.base_url)
+        return Settings(
+            _env_file=None,  # a committed .env must not change the gate's settings
+            llm_provider="ollama",
+            llm_model=self.model,
+            ollama_base_url=self.base_url,
+        )
 
     def _run(self, coro):
         if self._runner is None:

@@ -85,6 +85,7 @@ jobs:
           repository: ${{ inputs.evalgate_repo }}
           ref: ${{ inputs.evalgate_ref }}
           path: evalgate
+          persist-credentials: false
 
       # The merge commit lives in the app repo even for a fork PR. Depth 2 brings its parents.
       - name: app code, merge commit
@@ -139,8 +140,17 @@ jobs:
           ollama --version 2>&1 | tee ollama-version.txt
           grep -qF "${{ inputs.ollama_version }}" ollama-version.txt || { echo "::error::wrong ollama version"; exit 1; }
 
-      - name: model cache
+      # Only the base side saves the cache. The head side runs the PR's code and only restores.
+      - name: model cache (base, restore and save)
+        if: matrix.side == 'base'
         uses: actions/cache@v5
+        with:
+          path: ~/ollama-models
+          key: ollama-rag-${{ inputs.model }}-${{ inputs.model_digest }}-${{ inputs.embed_model }}-${{ inputs.embed_model_digest }}
+
+      - name: model cache (head, restore only)
+        if: matrix.side == 'head'
+        uses: actions/cache/restore@v5
         with:
           path: ~/ollama-models
           key: ollama-rag-${{ inputs.model }}-${{ inputs.model_digest }}-${{ inputs.embed_model }}-${{ inputs.embed_model_digest }}
@@ -194,6 +204,17 @@ jobs:
           repository: ${{ inputs.evalgate_repo }}
           ref: ${{ inputs.evalgate_ref }}
           path: evalgate
+          persist-credentials: false
+
+      # The app is only read here, never run: the base dataset is HEAD^1 of the merge commit.
+      - name: app checkout for the dataset diff
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.app_repo }}
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          path: app
+          persist-credentials: false
 
       - uses: actions/download-artifact@v7
         with:
@@ -206,6 +227,12 @@ jobs:
           export PYTHONPATH=evalgate/src
           python3 -m evalgate compare --base parts/base.json --head parts/head.json \
             --out-md report.md --out-json verdict.json
+
+      - name: dataset changes
+        run: |
+          git -C app show "HEAD^1:${{ inputs.dataset }}" > base-dataset.jsonl 2>/dev/null || : > base-dataset.jsonl
+          PYTHONPATH=evalgate/src python3 -m evalgate dataset-diff \
+            --base base-dataset.jsonl --head "app/${{ inputs.dataset }}" --append-to report.md
           cat report.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: sticky comment

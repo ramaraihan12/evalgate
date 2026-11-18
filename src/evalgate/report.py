@@ -53,9 +53,10 @@ def runner_warning(base: dict, head: dict) -> str | None:
 def _rag_note(n: int, model: str, digest: str) -> str:
     return (
         "A case passes when the expected passage was retrieved and the answer cites it, or, for a "
-        "question the documents don't answer, when the answer cites nothing and says the "
-        "documents don't cover it. No model grades the answers. The expected passages come from "
-        "the dataset, so a PR can only change the grading by editing the dataset. With "
+        "question the documents don't answer, when the answer says the documents don't cover it "
+        "and cites no retrieved source. No model grades the answers. The gate guards against "
+        "honest regressions: the PR's own code runs on the head side, so changes to "
+        "`.github/workflows/` and `evals/` need a human review. With "
         f"{n} cases only large drops can be detected: even if nothing improved, at least "
         f"{min_regressions()} cases would have to flip from right to wrong before this fails. "
         f"A pass means no large drop, not that nothing changed. The model is small (`{model}`, "
@@ -78,6 +79,8 @@ def _secondary_table(base: dict, head: dict) -> list[str]:
         ("retrieval hit rate", _num(a["hit_rate"]), _num(b["hit_rate"])),
         ("MRR", _num(a["mrr"], False), _num(b["mrr"], False)),
         ("citation rate", _num(a["citation_rate"]), _num(b["citation_rate"])),
+        ("citations per answer", _num(a["cites_per_answer"], False), _num(b["cites_per_answer"], False)),
+        ("citations to another file", _num(a["other_file_share"]), _num(b["other_file_share"])),
         ("out-of-range citations", str(a["out_of_range"]), str(b["out_of_range"])),
         ("abstain rate", _num(a["abstain_rate"]), _num(b["abstain_rate"])),
     ]
@@ -170,3 +173,27 @@ def render(result: dict, base: dict, head: dict) -> str:
         "production model would score.",
     ]
     return "\n".join(lines) + "\n"
+
+
+def dataset_changes(base_text: str | None, head_text: str) -> str:
+    """One markdown line: the case ids a PR removed, changed or added in the dataset."""
+    import json
+
+    def load(text):
+        rows = {}
+        for line in (text or "").splitlines():
+            if line.strip():
+                row = json.loads(line)
+                rows[row["id"]] = row
+        return rows
+
+    if base_text is None:
+        return "Dataset changes: the base has no dataset file."
+    base, head = load(base_text), load(head_text)
+    removed = [i for i in base if i not in head]
+    changed = [i for i in base if i in head and base[i] != head[i]]
+    added = [i for i in head if i not in base]
+    if not (removed or changed or added):
+        return "Dataset changes: none."
+    ids = lambda v: ", ".join(f"`{i}`" for i in v) if v else "none"
+    return f"Dataset changes: removed {ids(removed)}; changed {ids(changed)}; added {ids(added)}."

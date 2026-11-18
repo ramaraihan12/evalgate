@@ -2,7 +2,7 @@
 
 Nothing here asks a model to judge an answer. A case is checked against the expected file and
 page or section from the dataset, the numbers the answer cites, and a fixed list of phrases
-for "the documents don't cover this".
+for "the documents don't cover this". An abstention says that and cites no retrieved source.
 """
 
 import re
@@ -10,9 +10,9 @@ import re
 CITED = re.compile(r"\[(\d+)\]")  # the same pattern the app's /api/ask uses
 
 # What the prompt asks for ("say that the documents don't cover it") plus the app's own fixed
-# no-answer replies, in English and Indonesian. A sentence only counts when it has both a
-# negation and a reference to the documents, so "the company does not cover visa fees" or
-# "visa fees are not included" (a confident made-up answer) is not an abstention.
+# no-answer replies, in English and Indonesian. A clause only counts when it has a negation and
+# a reference to the documents and does not attribute the claim to them ("according to the
+# documents, the company does not cover X" is a made-up answer, not an abstention).
 _ADV = r"(?:\w+\s+)?"  # one adverb, e.g. "do not explicitly mention"
 ABSTAIN_PATTERNS = [
     # English
@@ -28,12 +28,17 @@ ABSTAIN_PATTERNS = [
 ]
 _ABSTAIN = [re.compile(r"\b(?:" + p + r")\b", re.IGNORECASE) for p in ABSTAIN_PATTERNS]
 
-# What the negation has to be about, in the same sentence.
+# What the negation has to be about, in the same clause. "file" is left out on purpose:
+# "employees must file their own claim" is not about the documents.
 _DOC_REF = re.compile(
-    r"\b(?:documents?|sources?|context|provided|files?|dokumen|sumber|konteks|berkas)\b",
+    r"\b(?:documents?|sources?|context|provided|dokumen|sumber|konteks|berkas)\b",
     re.IGNORECASE,
 )
-_SENTENCES = re.compile(r"(?<=[.!?])\s+|\n\s*\n")
+_ATTRIBUTION = re.compile(
+    r"\b(?:according\s+to|based\s+on|as\s+(?:stated|described|per)|berdasarkan|menurut|sesuai)\b",
+    re.IGNORECASE,
+)
+_CLAUSES = re.compile(r"[.!?;:,]\s+|\n\s*\n")
 
 
 def cited_numbers(answer: str) -> list[int]:
@@ -82,9 +87,15 @@ def citation_ok(expected: dict, answer: str, sources: list[dict]) -> bool:
 
 
 def says_not_covered(answer: str) -> bool:
+    """Some clause says the documents don't cover it: a document reference and a negation,
+    without an attribution phrase that would make the negation a claim about the world."""
     text = (answer or "").replace("’", "'").replace("‘", "'")
-    for sentence in _SENTENCES.split(text):
-        if _DOC_REF.search(sentence) and any(p.search(sentence) for p in _ABSTAIN):
+    for clause in _CLAUSES.split(text):
+        if (
+            _DOC_REF.search(clause)
+            and not _ATTRIBUTION.search(clause)
+            and any(p.search(clause) for p in _ABSTAIN)
+        ):
             return True
     return False
 
@@ -110,6 +121,10 @@ def grade_case(case: dict, answer: str, sources: list[dict]) -> dict:
         record["rank"] = rank
         record["retrieval_hit"] = rank is not None
         record["citation_ok"] = citation_ok(case, answer, sources)
+        record["n_cited"] = len(in_range)
+        record["cited_other_file"] = sum(
+            sources[n - 1].get("file_name") != case["file"] for n in in_range
+        )
         record["correct"] = record["retrieval_hit"] and record["citation_ok"]
     else:
         record["abstain_ok"] = abstain_ok(answer, len(sources))
@@ -135,6 +150,13 @@ def summarize(cases: list[dict]) -> dict:
             else None
         ),
         "citation_rate": rate(sum(bool(c.get("citation_ok")) for c in answerable), len(answerable)),
+        "cites_per_answer": (
+            sum(c.get("n_cited", 0) for c in answerable) / len(answerable) if answerable else None
+        ),
+        "other_file_share": rate(
+            sum(c.get("cited_other_file", 0) for c in answerable),
+            sum(c.get("n_cited", 0) for c in answerable),
+        ),
         "out_of_range": sum(len(c.get("out_of_range") or []) for c in cases),
         "abstain_rate": rate(sum(bool(c.get("abstain_ok")) for c in abstain), len(abstain)),
     }

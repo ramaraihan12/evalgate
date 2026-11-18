@@ -72,6 +72,10 @@ def test_citation_ok_needs_a_cite_in_range_and_the_right_source():
         "The documents do not explicitly mention stock options.",
         "The documents  do not\ncover visa fees.",
         "I could not find that in the provided context.",
+        "I couldn't find anything about that in these documents, so I'd rather not guess. Try rephrasing, or ask about something they cover.",
+        "Saya tidak menemukan informasi itu di dokumen ini, jadi saya tidak mau menebak. Coba ubah pertanyaannya, atau tanyakan hal yang dibahas di dokumen.",
+        "The documents do not explicitly mention visa fees. However, they do mention daily allowance. Therefore, the documents do not cover visa fees.",
+        "Unfortunately, the provided documents don't mention stock options.",
     ],
 )
 def test_says_not_covered(text):
@@ -89,6 +93,14 @@ def test_says_not_covered(text):
         "Visa fees are not included in reimbursable costs.",
         "Tidak, perusahaan tidak mengatur penggantian visa.",
         "Harga Tandon Sense T2 belum tersedia informasi resmi, sekitar Rp 2 juta.",
+        "According to the documents, Kabut Labs does not provide stock options to employees.",
+        "Based on the provided context, the company does not cover visa fees.",
+        "Based on the information in the documents, the company does not cover visa fees for trips abroad.",
+        "Berdasarkan dokumen, perusahaan tidak mengatur penggantian visa.",
+        "Menurut dokumen perusahaan tidak mengatur penggantian visa.",
+        "The company does not cover visa fees according to the documents.",
+        "No, the company does not cover visa fees for trips abroad, as stated in the travel policy document.",
+        "The company does not cover visa fees; employees must file their own claim.",
         "",
     ],
 )
@@ -220,7 +232,7 @@ def test_rag_report_has_secondary_numbers_and_the_notes():
     assert "Eval gate: FAIL" in text
     for needle in ("retrieval hit rate", "MRR", "citation rate", "out-of-range citations",
                    "abstain rate", "No model grades the answers", "only large drops",
-                   "editing the dataset", "not the model the live app uses"):
+                   "human review", "citations per answer", "not the model the live app uses"):
         assert needle in text
     assert "SQL" not in text
     assert "now wrong (the expected passage was not retrieved)" in text or "now wrong (" in text
@@ -243,3 +255,36 @@ def test_call_with_timeout():
         call_with_timeout(lambda: (_ for _ in ()).throw(ValueError("boom")), 5)
     with pytest.raises(TimeoutError):
         call_with_timeout(lambda: time.sleep(5), 0.1)
+
+
+def test_citation_precision_numbers():
+    case = {"file": PDF, "page": 3}
+    sources = [src(PDF, page=3), src(MD, section="A"), src(MD, section="B")]
+    rec = rm.grade_case(case, "x [1][2][3]", sources)
+    assert rec["citation_ok"] and rec["n_cited"] == 3 and rec["cited_other_file"] == 2
+    rec2 = rm.grade_case(case, "x [1]", sources)
+    s = rm.summarize([rec, rec2, {"expect": "abstain", "abstain_ok": True, "out_of_range": []}])
+    assert s["cites_per_answer"] == 2
+    assert s["other_file_share"] == pytest.approx(2 / 4)
+    assert rm.summarize([])["cites_per_answer"] is None
+    assert rm.summarize([{"expect": "answer", "n_cited": 0, "cited_other_file": 0}])["other_file_share"] is None
+
+
+def test_dataset_changes():
+    import json
+
+    from evalgate.report import dataset_changes
+
+    def lines(*rows):
+        return chr(10).join(json.dumps(r) for r in rows) + chr(10)
+
+    r1 = {"id": "r1", "question": "q", "file": None}
+    r2 = {"id": "r2", "question": "q2", "file": "x"}
+    r2b = {**r2, "file": "y"}
+    r3 = {"id": "r3", "question": "n", "file": None}
+    assert dataset_changes(lines(r1, r2), lines(r1, r2)) == "Dataset changes: none."
+    assert dataset_changes(lines(r1, r2), lines(r1, r2b, r3)) == (
+        "Dataset changes: removed none; changed `r2`; added `r3`."
+    )
+    assert "removed `r2`" in dataset_changes(lines(r1, r2), lines(r1))
+    assert "no dataset" in dataset_changes(None, lines(r1))
