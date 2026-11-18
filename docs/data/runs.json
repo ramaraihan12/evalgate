@@ -1,0 +1,676 @@
+{
+ "runs": [
+  {
+   "app": "sql-chat",
+   "repo": "ramaraihan12/text-to-sql-chat",
+   "run_id": 44003372903,
+   "run_url": "https://github.com/ramaraihan12/text-to-sql-chat/actions/runs/44003372903",
+   "created_at": "2026-11-17T02:29:35Z",
+   "pr": 1,
+   "pr_title": "add an eval gate for pull requests",
+   "pr_state": "merged",
+   "branch": "eval-gate",
+   "n": 50,
+   "base_correct": 28,
+   "head_correct": 27,
+   "base_ci": [
+    0.4230578680014353,
+    0.6883801278976466
+   ],
+   "head_ci": [
+    0.40398634328388083,
+    0.6703056539821737
+   ],
+   "b": 1,
+   "c": 0,
+   "p_value": 0.5,
+   "verdict": "PASS",
+   "regressed_count": 1,
+   "fixed_count": 0
+  },
+  {
+   "app": "sql-chat",
+   "repo": "ramaraihan12/text-to-sql-chat",
+   "run_id": 44007036945,
+   "run_url": "https://github.com/ramaraihan12/text-to-sql-chat/actions/runs/44007036945",
+   "created_at": "2026-11-17T03:00:21Z",
+   "pr": 1,
+   "pr_title": "add an eval gate for pull requests",
+   "pr_state": "merged",
+   "branch": "eval-gate",
+   "n": 50,
+   "base_correct": 26,
+   "head_correct": 26,
+   "base_ci": [
+    0.3851151225880844,
+    0.6520308760449429
+   ],
+   "head_ci": [
+    0.3851151225880844,
+    0.6520308760449429
+   ],
+   "b": 0,
+   "c": 0,
+   "p_value": 1.0,
+   "verdict": "PASS",
+   "regressed_count": 0,
+   "fixed_count": 0
+  },
+  {
+   "app": "sql-chat",
+   "repo": "ramaraihan12/text-to-sql-chat",
+   "run_id": 44009652558,
+   "run_url": "https://github.com/ramaraihan12/text-to-sql-chat/actions/runs/44009652558",
+   "created_at": "2026-11-17T03:21:44Z",
+   "pr": 2,
+   "pr_title": "drop the revenue rules from the schema comments",
+   "pr_state": "open",
+   "branch": "drop-revenue-rules",
+   "n": 50,
+   "base_correct": 26,
+   "head_correct": 18,
+   "base_ci": [
+    0.3851151225880844,
+    0.6520308760449429
+   ],
+   "head_ci": [
+    0.24138562967182875,
+    0.49859237989698046
+   ],
+   "b": 10,
+   "c": 2,
+   "p_value": 0.019287109375,
+   "verdict": "FAIL",
+   "regressed_count": 10,
+   "fixed_count": 2
+  },
+  {
+   "app": "sql-chat",
+   "repo": "ramaraihan12/text-to-sql-chat",
+   "run_id": 44012466139,
+   "run_url": "https://github.com/ramaraihan12/text-to-sql-chat/actions/runs/44012466139",
+   "created_at": "2026-11-17T03:45:53Z",
+   "pr": 3,
+   "pr_title": "harden the eval gate",
+   "pr_state": "merged",
+   "branch": "harden-eval-gate",
+   "n": 50,
+   "base_correct": 26,
+   "head_correct": 26,
+   "base_ci": [
+    0.3851151225880844,
+    0.6520308760449429
+   ],
+   "head_ci": [
+    0.3851151225880844,
+    0.6520308760449429
+   ],
+   "b": 0,
+   "c": 0,
+   "p_value": 1.0,
+   "verdict": "PASS",
+   "regressed_count": 0,
+   "fixed_count": 0
+  },
+  {
+   "app": "sql-chat",
+   "repo": "ramaraihan12/text-to-sql-chat",
+   "run_id": 44013895677,
+   "run_url": "https://github.com/ramaraihan12/text-to-sql-chat/actions/runs/44013895677",
+   "created_at": "2026-11-17T03:58:30Z",
+   "pr": 3,
+   "pr_title": "harden the eval gate",
+   "pr_state": "merged",
+   "branch": "harden-eval-gate",
+   "n": 50,
+   "base_correct": 26,
+   "head_correct": 26,
+   "base_ci": [
+    0.3851151225880844,
+    0.6520308760449429
+   ],
+   "head_ci": [
+    0.3851151225880844,
+    0.6520308760449429
+   ],
+   "b": 0,
+   "c": 0,
+   "p_value": 1.0,
+   "verdict": "PASS",
+   "regressed_count": 0,
+   "fixed_count": 0
+  },
+  {
+   "app": "sql-chat",
+   "repo": "ramaraihan12/text-to-sql-chat",
+   "run_id": 44016764022,
+   "run_url": "https://github.com/ramaraihan12/text-to-sql-chat/actions/runs/44016764022",
+   "created_at": "2026-11-17T04:22:46Z",
+   "pr": 3,
+   "pr_title": "harden the eval gate",
+   "pr_state": "merged",
+   "branch": "harden-eval-gate",
+   "n": 50,
+   "base_correct": 26,
+   "head_correct": 26,
+   "base_ci": [
+    0.3851151225880844,
+    0.6520308760449429
+   ],
+   "head_ci": [
+    0.3851151225880844,
+    0.6520308760449429
+   ],
+   "b": 2,
+   "c": 2,
+   "p_value": 0.6875,
+   "verdict": "PASS",
+   "regressed_count": 2,
+   "fixed_count": 2
+  },
+  {
+   "app": "sql-chat",
+   "repo": "ramaraihan12/text-to-sql-chat",
+   "run_id": 44022078580,
+   "run_url": "https://github.com/ramaraihan12/text-to-sql-chat/actions/runs/44022078580",
+   "created_at": "2026-11-17T05:09:24Z",
+   "pr": 3,
+   "pr_title": "harden the eval gate",
+   "pr_state": "merged",
+   "branch": "harden-eval-gate",
+   "n": 50,
+   "base_correct": 26,
+   "head_correct": 26,
+   "base_ci": [
+    0.3851151225880844,
+    0.6520308760449429
+   ],
+   "head_ci": [
+    0.3851151225880844,
+    0.6520308760449429
+   ],
+   "b": 2,
+   "c": 2,
+   "p_value": 0.6875,
+   "verdict": "PASS",
+   "regressed_count": 2,
+   "fixed_count": 2
+  },
+  {
+   "app": "sql-chat",
+   "repo": "ramaraihan12/text-to-sql-chat",
+   "run_id": 44024973987,
+   "run_url": "https://github.com/ramaraihan12/text-to-sql-chat/actions/runs/44024973987",
+   "created_at": "2026-11-17T05:33:45Z",
+   "pr": 2,
+   "pr_title": "drop the revenue rules from the schema comments",
+   "pr_state": "open",
+   "branch": "drop-revenue-rules",
+   "n": 50,
+   "base_correct": 26,
+   "head_correct": 17,
+   "base_ci": [
+    0.3851151225880844,
+    0.6520308760449429
+   ],
+   "head_ci": [
+    0.2243676963506106,
+    0.47846431458517147
+   ],
+   "b": 10,
+   "c": 1,
+   "p_value": 0.005859375,
+   "verdict": "FAIL",
+   "regressed_count": 10,
+   "fixed_count": 1
+  },
+  {
+   "app": "docs-rag",
+   "repo": "ramaraihan12/docs-rag-assistant",
+   "run_id": 44025914026,
+   "run_url": "https://github.com/ramaraihan12/docs-rag-assistant/actions/runs/44025914026",
+   "created_at": "2026-11-17T05:41:57Z",
+   "pr": 1,
+   "pr_title": "add the eval gate",
+   "pr_state": "merged",
+   "branch": "eval-gate",
+   "n": 40,
+   "base_correct": 36,
+   "head_correct": 37,
+   "base_ci": [
+    0.7694792561952611,
+    0.9604211124044252
+   ],
+   "head_ci": [
+    0.8013546984090248,
+    0.9741644432281419
+   ],
+   "b": 0,
+   "c": 1,
+   "p_value": 1.0,
+   "verdict": "PASS",
+   "regressed_count": 0,
+   "fixed_count": 1
+  },
+  {
+   "app": "docs-rag",
+   "repo": "ramaraihan12/docs-rag-assistant",
+   "run_id": 44026842975,
+   "run_url": "https://github.com/ramaraihan12/docs-rag-assistant/actions/runs/44026842975",
+   "created_at": "2026-11-17T05:50:05Z",
+   "pr": 1,
+   "pr_title": "add the eval gate",
+   "pr_state": "merged",
+   "branch": "eval-gate",
+   "n": 40,
+   "base_correct": 36,
+   "head_correct": 36,
+   "base_ci": [
+    0.7694792561952611,
+    0.9604211124044252
+   ],
+   "head_ci": [
+    0.7694792561952611,
+    0.9604211124044252
+   ],
+   "b": 2,
+   "c": 2,
+   "p_value": 0.6875,
+   "verdict": "PASS",
+   "regressed_count": 2,
+   "fixed_count": 2
+  },
+  {
+   "app": "docs-rag",
+   "repo": "ramaraihan12/docs-rag-assistant",
+   "run_id": 44219849233,
+   "run_url": "https://github.com/ramaraihan12/docs-rag-assistant/actions/runs/44219849233",
+   "created_at": "2026-11-18T01:58:54Z",
+   "pr": 1,
+   "pr_title": "add the eval gate",
+   "pr_state": "merged",
+   "branch": "eval-gate",
+   "n": 40,
+   "base_correct": 37,
+   "head_correct": 37,
+   "base_ci": [
+    0.8013546984090248,
+    0.9741644432281419
+   ],
+   "head_ci": [
+    0.8013546984090248,
+    0.9741644432281419
+   ],
+   "b": 0,
+   "c": 0,
+   "p_value": 1.0,
+   "verdict": "PASS",
+   "regressed_count": 0,
+   "fixed_count": 0
+  },
+  {
+   "app": "docs-rag",
+   "repo": "ramaraihan12/docs-rag-assistant",
+   "run_id": 44222286399,
+   "run_url": "https://github.com/ramaraihan12/docs-rag-assistant/actions/runs/44222286399",
+   "created_at": "2026-11-18T02:18:33Z",
+   "pr": 1,
+   "pr_title": "add the eval gate",
+   "pr_state": "merged",
+   "branch": "eval-gate",
+   "n": 40,
+   "base_correct": 36,
+   "head_correct": 37,
+   "base_ci": [
+    0.7694792561952611,
+    0.9604211124044252
+   ],
+   "head_ci": [
+    0.8013546984090248,
+    0.9741644432281419
+   ],
+   "b": 1,
+   "c": 2,
+   "p_value": 0.875,
+   "verdict": "PASS",
+   "regressed_count": 1,
+   "fixed_count": 2
+  },
+  {
+   "app": "sql-chat",
+   "repo": "ramaraihan12/text-to-sql-chat",
+   "run_id": 44224732985,
+   "run_url": "https://github.com/ramaraihan12/text-to-sql-chat/actions/runs/44224732985",
+   "created_at": "2026-11-18T02:38:22Z",
+   "pr": 4,
+   "pr_title": "add sampled, redacted tracing to langfuse",
+   "pr_state": "merged",
+   "branch": "trace-sampling",
+   "n": 50,
+   "base_correct": 25,
+   "head_correct": 26,
+   "base_ci": [
+    0.36644286412332855,
+    0.6335571358766714
+   ],
+   "head_ci": [
+    0.3851151225880844,
+    0.6520308760449429
+   ],
+   "b": 1,
+   "c": 2,
+   "p_value": 0.875,
+   "verdict": "PASS",
+   "regressed_count": 1,
+   "fixed_count": 2
+  },
+  {
+   "app": "docs-rag",
+   "repo": "ramaraihan12/docs-rag-assistant",
+   "run_id": 44224760309,
+   "run_url": "https://github.com/ramaraihan12/docs-rag-assistant/actions/runs/44224760309",
+   "created_at": "2026-11-18T02:38:36Z",
+   "pr": 2,
+   "pr_title": "add sampled, redacted tracing",
+   "pr_state": "merged",
+   "branch": "trace-sampling",
+   "n": 40,
+   "base_correct": 37,
+   "head_correct": 37,
+   "base_ci": [
+    0.8013546984090248,
+    0.9741644432281419
+   ],
+   "head_ci": [
+    0.8013546984090248,
+    0.9741644432281419
+   ],
+   "b": 1,
+   "c": 1,
+   "p_value": 0.75,
+   "verdict": "PASS",
+   "regressed_count": 1,
+   "fixed_count": 1
+  },
+  {
+   "app": "docs-rag",
+   "repo": "ramaraihan12/docs-rag-assistant",
+   "run_id": 44227497158,
+   "run_url": "https://github.com/ramaraihan12/docs-rag-assistant/actions/runs/44227497158",
+   "created_at": "2026-11-18T03:01:56Z",
+   "pr": 2,
+   "pr_title": "add sampled, redacted tracing",
+   "pr_state": "merged",
+   "branch": "trace-sampling",
+   "n": 40,
+   "base_correct": 37,
+   "head_correct": 37,
+   "base_ci": [
+    0.8013546984090248,
+    0.9741644432281419
+   ],
+   "head_ci": [
+    0.8013546984090248,
+    0.9741644432281419
+   ],
+   "b": 1,
+   "c": 1,
+   "p_value": 0.75,
+   "verdict": "PASS",
+   "regressed_count": 1,
+   "fixed_count": 1
+  },
+  {
+   "app": "sql-chat",
+   "repo": "ramaraihan12/text-to-sql-chat",
+   "run_id": 44227577557,
+   "run_url": "https://github.com/ramaraihan12/text-to-sql-chat/actions/runs/44227577557",
+   "created_at": "2026-11-18T03:02:38Z",
+   "pr": 4,
+   "pr_title": "add sampled, redacted tracing to langfuse",
+   "pr_state": "merged",
+   "branch": "trace-sampling",
+   "n": 50,
+   "base_correct": 26,
+   "head_correct": 24,
+   "base_ci": [
+    0.3851151225880844,
+    0.6520308760449429
+   ],
+   "head_ci": [
+    0.3479691239550571,
+    0.6148848774119157
+   ],
+   "b": 2,
+   "c": 0,
+   "p_value": 0.25,
+   "verdict": "PASS",
+   "regressed_count": 2,
+   "fixed_count": 0
+  },
+  {
+   "app": "docs-rag",
+   "repo": "ramaraihan12/docs-rag-assistant",
+   "run_id": 44230818434,
+   "run_url": "https://github.com/ramaraihan12/docs-rag-assistant/actions/runs/44230818434",
+   "created_at": "2026-11-18T03:29:50Z",
+   "pr": 2,
+   "pr_title": "add sampled, redacted tracing",
+   "pr_state": "merged",
+   "branch": "trace-sampling",
+   "n": 40,
+   "base_correct": 37,
+   "head_correct": 38,
+   "base_ci": [
+    0.8013546984090248,
+    0.9741644432281419
+   ],
+   "head_ci": [
+    0.834958291820748,
+    0.9861796228538989
+   ],
+   "b": 0,
+   "c": 1,
+   "p_value": 1.0,
+   "verdict": "PASS",
+   "regressed_count": 0,
+   "fixed_count": 1
+  },
+  {
+   "app": "sql-chat",
+   "repo": "ramaraihan12/text-to-sql-chat",
+   "run_id": 44230969167,
+   "run_url": "https://github.com/ramaraihan12/text-to-sql-chat/actions/runs/44230969167",
+   "created_at": "2026-11-18T03:31:03Z",
+   "pr": 4,
+   "pr_title": "add sampled, redacted tracing to langfuse",
+   "pr_state": "merged",
+   "branch": "trace-sampling",
+   "n": 50,
+   "base_correct": 25,
+   "head_correct": 26,
+   "base_ci": [
+    0.36644286412332855,
+    0.6335571358766714
+   ],
+   "head_ci": [
+    0.3851151225880844,
+    0.6520308760449429
+   ],
+   "b": 1,
+   "c": 2,
+   "p_value": 0.875,
+   "verdict": "PASS",
+   "regressed_count": 1,
+   "fixed_count": 2
+  },
+  {
+   "app": "sql-chat",
+   "repo": "ramaraihan12/text-to-sql-chat",
+   "run_id": 44232648038,
+   "run_url": "https://github.com/ramaraihan12/text-to-sql-chat/actions/runs/44232648038",
+   "created_at": "2026-11-18T03:45:36Z",
+   "pr": 4,
+   "pr_title": "add sampled, redacted tracing to langfuse",
+   "pr_state": "merged",
+   "branch": "trace-sampling",
+   "n": 50,
+   "base_correct": 26,
+   "head_correct": 26,
+   "base_ci": [
+    0.3851151225880844,
+    0.6520308760449429
+   ],
+   "head_ci": [
+    0.3851151225880844,
+    0.6520308760449429
+   ],
+   "b": 0,
+   "c": 0,
+   "p_value": 1.0,
+   "verdict": "PASS",
+   "regressed_count": 0,
+   "fixed_count": 0
+  },
+  {
+   "app": "docs-rag",
+   "repo": "ramaraihan12/docs-rag-assistant",
+   "run_id": 44235260548,
+   "run_url": "https://github.com/ramaraihan12/docs-rag-assistant/actions/runs/44235260548",
+   "created_at": "2026-11-18T04:08:37Z",
+   "pr": 2,
+   "pr_title": "add sampled, redacted tracing",
+   "pr_state": "merged",
+   "branch": "trace-sampling",
+   "n": 40,
+   "base_correct": 37,
+   "head_correct": 37,
+   "base_ci": [
+    0.8013546984090248,
+    0.9741644432281419
+   ],
+   "head_ci": [
+    0.8013546984090248,
+    0.9741644432281419
+   ],
+   "b": 0,
+   "c": 0,
+   "p_value": 1.0,
+   "verdict": "PASS",
+   "regressed_count": 0,
+   "fixed_count": 0
+  },
+  {
+   "app": "sql-chat",
+   "repo": "ramaraihan12/text-to-sql-chat",
+   "run_id": 44235265288,
+   "run_url": "https://github.com/ramaraihan12/text-to-sql-chat/actions/runs/44235265288",
+   "created_at": "2026-11-18T04:08:40Z",
+   "pr": 4,
+   "pr_title": "add sampled, redacted tracing to langfuse",
+   "pr_state": "merged",
+   "branch": "trace-sampling",
+   "n": 50,
+   "base_correct": 26,
+   "head_correct": 26,
+   "base_ci": [
+    0.3851151225880844,
+    0.6520308760449429
+   ],
+   "head_ci": [
+    0.3851151225880844,
+    0.6520308760449429
+   ],
+   "b": 0,
+   "c": 0,
+   "p_value": 1.0,
+   "verdict": "PASS",
+   "regressed_count": 0,
+   "fixed_count": 0
+  },
+  {
+   "app": "docs-rag",
+   "repo": "ramaraihan12/docs-rag-assistant",
+   "run_id": 44238781625,
+   "run_url": "https://github.com/ramaraihan12/docs-rag-assistant/actions/runs/44238781625",
+   "created_at": "2026-11-18T04:39:00Z",
+   "pr": 2,
+   "pr_title": "add sampled, redacted tracing",
+   "pr_state": "merged",
+   "branch": "trace-sampling",
+   "n": 40,
+   "base_correct": 37,
+   "head_correct": 37,
+   "base_ci": [
+    0.8013546984090248,
+    0.9741644432281419
+   ],
+   "head_ci": [
+    0.8013546984090248,
+    0.9741644432281419
+   ],
+   "b": 1,
+   "c": 1,
+   "p_value": 0.75,
+   "verdict": "PASS",
+   "regressed_count": 1,
+   "fixed_count": 1
+  },
+  {
+   "app": "sql-chat",
+   "repo": "ramaraihan12/text-to-sql-chat",
+   "run_id": 44238785620,
+   "run_url": "https://github.com/ramaraihan12/text-to-sql-chat/actions/runs/44238785620",
+   "created_at": "2026-11-18T04:39:02Z",
+   "pr": 4,
+   "pr_title": "add sampled, redacted tracing to langfuse",
+   "pr_state": "merged",
+   "branch": "trace-sampling",
+   "n": 50,
+   "base_correct": 26,
+   "head_correct": 25,
+   "base_ci": [
+    0.3851151225880844,
+    0.6520308760449429
+   ],
+   "head_ci": [
+    0.36644286412332855,
+    0.6335571358766714
+   ],
+   "b": 2,
+   "c": 1,
+   "p_value": 0.5,
+   "verdict": "PASS",
+   "regressed_count": 2,
+   "fixed_count": 1
+  },
+  {
+   "app": "docs-rag",
+   "repo": "ramaraihan12/docs-rag-assistant",
+   "run_id": 44241724761,
+   "run_url": "https://github.com/ramaraihan12/docs-rag-assistant/actions/runs/44241724761",
+   "created_at": "2026-11-18T05:05:04Z",
+   "pr": 3,
+   "pr_title": "wait for the trace send instead of scheduling it",
+   "pr_state": "merged",
+   "branch": "await-trace",
+   "n": 40,
+   "base_correct": 37,
+   "head_correct": 37,
+   "base_ci": [
+    0.8013546984090248,
+    0.9741644432281419
+   ],
+   "head_ci": [
+    0.8013546984090248,
+    0.9741644432281419
+   ],
+   "b": 0,
+   "c": 0,
+   "p_value": 1.0,
+   "verdict": "PASS",
+   "regressed_count": 0,
+   "fixed_count": 0
+  }
+ ]
+}

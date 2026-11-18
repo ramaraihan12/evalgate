@@ -5,6 +5,8 @@ and every pull request has to hold its own against the base branch before it mer
 runs the same cases on the base commit and on the PR commit, compares them, and posts one
 comment on the PR.
 
+Results for every gate run: https://ramaraihan.is-a.dev/evalgate/
+
 I'm building it in small milestones. The first real user is
 [text-to-sql-chat](https://github.com/ramaraihan12/text-to-sql-chat).
 
@@ -83,6 +85,19 @@ chunking, retrieval and the prompt, not the quality of the production model's an
 Runners are not all the same: in my timing runs the same job landed on an AMD EPYC 7763, an EPYC
 9V74 and a Xeon 6975P, and the 3B model took 26 s per question on the first and about 9 s on the
 last. Both sides record the CPU and the comment warns when they differ.
+
+## M4: dashboard
+
+Gate artifacts expire after 90 days, so the history would disappear. `evalgate collect-runs`
+reads the `gate-report` artifacts of the apps through the GitHub API (read-only), keeps the numbers
+from each `verdict.json` plus the PR number, title and state, and merges them into
+`docs/data/runs.json`. Old records are never dropped, so an expired artifact doesn't erase a run.
+No case questions or answers are stored.
+
+`docs/` is a static page (plain HTML, CSS and JS, no external requests) that reads that file: the
+latest run of the deliberately bad PR 2 in text-to-sql-chat at the top, then a chart and a table
+of gate runs per app, and a section on what the gate can't catch. I run the collector by hand and
+commit the result; nothing is scheduled.
 
 ## Use it
 
@@ -169,4 +184,6 @@ The private repo needs the secrets `LANGFUSE_HOST`, `LANGFUSE_READ_PUBLIC_KEY` a
 ```bash
 uv sync
 uv run pytest
+# refresh the dashboard data (needs GH_TOKEN or a logged-in gh)
+uv run evalgate collect-runs --repo ramaraihan12/text-to-sql-chat=sql-chat   --repo ramaraihan12/docs-rag-assistant=docs-rag --out docs/data/runs.json
 ```
