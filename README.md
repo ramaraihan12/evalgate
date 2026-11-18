@@ -140,7 +140,10 @@ written.
 
 **Privacy.** The apps redact emails, phone numbers, long digit runs and token-like strings
 before a trace leaves them, so Langfuse only ever holds redacted text. Rows carry no IPs or
-headers. This repo is public, so only that redacted text lands here.
+headers. This repo is public, so only that redacted text would land here, which does not match
+the apps' notice that logs are never published. Until that is settled (a private queue repo, or a
+changed notice) the workflow has no schedule and runs only by hand. Do not run it against
+production traces on this repo.
 
 Needs the secrets `LANGFUSE_HOST`, `LANGFUSE_READ_PUBLIC_KEY` and `LANGFUSE_READ_SECRET_KEY`,
 and "Allow GitHub Actions to create pull requests" turned on. Locally:
