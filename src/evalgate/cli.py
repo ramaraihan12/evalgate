@@ -150,6 +150,23 @@ def cmd_verdict(args) -> int:
     return 1 if verdict == "FAIL" else 0
 
 
+def cmd_harvest(args) -> int:
+    from evalgate.harvest import env_credentials, run_harvest
+
+    host, public_key, secret_key = env_credentials()
+    result = run_harvest(
+        args.out, host=host, public_key=public_key, secret_key=secret_key, days=args.days
+    )
+    print(
+        f"{result['week']}: read {result['read']} observations, wrote {result['written']} rows "
+        f"{result['per_app']}, dropped over the cap {result['dropped']}"
+    )
+    if args.github_output:
+        with open(args.github_output, "a", encoding="utf-8") as fh:
+            fh.write(f"rows={result['written']}\nweek={result['week']}\n")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="evalgate")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -193,6 +210,12 @@ def main(argv: list[str] | None = None) -> int:
     dd.add_argument("--head", required=True)
     dd.add_argument("--append-to", required=True)
     dd.set_defaults(func=cmd_dataset_diff)
+
+    hv = sub.add_parser("harvest", help="write last week's flagged production answers to the review queue")
+    hv.add_argument("--out", default="review-queue")
+    hv.add_argument("--days", type=int, default=7)
+    hv.add_argument("--github-output", default=None, help="append rows= and week= to this file")
+    hv.set_defaults(func=cmd_harvest)
 
     ver = sub.add_parser("verdict", help="exit 1 when the verdict file says FAIL")
     ver.add_argument("--file", required=True)

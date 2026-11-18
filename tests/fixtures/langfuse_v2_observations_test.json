@@ -1,0 +1,101 @@
+{
+  "data": [
+    {
+      "id": "dc41e8495f674f7c",
+      "traceId": "d5fba8d6438c45d2830644a0f9c23c5e",
+      "startTime": "2026-11-18T03:26:34.252Z",
+      "endTime": "2026-11-18T03:26:35.052Z",
+      "projectId": "[redacted]",
+      "parentObservationId": null,
+      "type": "GENERATION",
+      "name": "answer",
+      "level": "ERROR",
+      "statusMessage": "",
+      "version": "",
+      "environment": "test",
+      "input": "{\"question\": \"synthetic: how many orders last week?\"}",
+      "output": "{\"answer\": \"SELECT 1\", \"cited\": [], \"sources\": [\"kebijakan-perjalanan-dinas.md\"]}",
+      "metadata": {
+        "sample_rate": 1,
+        "flags": [
+          "error"
+        ],
+        "latency_ms": 800,
+        "model": "test-model",
+        "app": "sql-chat",
+        "scope.name": "sql-chat",
+        "resourceAttributes.service.name": "sql-chat",
+        "attributes.langfuse.observation.model.name": "test-model",
+        "attributes.langfuse.observation.level": "ERROR",
+        "attributes.langfuse.trace.tags": [
+          "app:sql-chat",
+          "flag:error"
+        ],
+        "attributes.langfuse.release": "harvest-roundtrip",
+        "attributes.langfuse.environment": "test",
+        "attributes.langfuse.trace.name": "sql-chat.ask",
+        "attributes.langfuse.observation.type": "generation"
+      },
+      "latency": 0.8,
+      "timeToFirstToken": null,
+      "userId": "",
+      "sessionId": "",
+      "isRootObservation": true,
+      "bookmarked": false,
+      "public": false,
+      "modelId": null,
+      "inputPrice": null,
+      "outputPrice": null,
+      "totalPrice": null
+    },
+    {
+      "id": "8f9b226c77594615",
+      "traceId": "7f7849870f46431d89a44d4eb063b127",
+      "startTime": "2026-11-18T03:26:33.190Z",
+      "endTime": "2026-11-18T03:26:33.990Z",
+      "projectId": "[redacted]",
+      "parentObservationId": null,
+      "type": "GENERATION",
+      "name": "answer",
+      "level": "WARNING",
+      "statusMessage": "",
+      "version": "",
+      "environment": "test",
+      "input": "{\"question\": \"synthetic: what is the travel allowance?\"}",
+      "output": "{\"answer\": \"I could not find that in the documents.\", \"cited\": [], \"sources\": [\"kebijakan-perjalanan-dinas.md\"]}",
+      "metadata": {
+        "sample_rate": 1,
+        "flags": [
+          "no_sources"
+        ],
+        "latency_ms": 800,
+        "model": "test-model",
+        "app": "docs-rag",
+        "scope.name": "docs-rag",
+        "resourceAttributes.service.name": "docs-rag",
+        "attributes.langfuse.observation.model.name": "test-model",
+        "attributes.langfuse.observation.level": "WARNING",
+        "attributes.langfuse.trace.tags": [
+          "app:docs-rag",
+          "flag:no_sources"
+        ],
+        "attributes.langfuse.release": "harvest-roundtrip",
+        "attributes.langfuse.environment": "test",
+        "attributes.langfuse.trace.name": "docs-rag.ask",
+        "attributes.langfuse.observation.type": "generation"
+      },
+      "latency": 0.8,
+      "timeToFirstToken": null,
+      "userId": "",
+      "sessionId": "",
+      "isRootObservation": true,
+      "bookmarked": false,
+      "public": false,
+      "modelId": null,
+      "inputPrice": null,
+      "outputPrice": null,
+      "totalPrice": null
+    }
+  ],
+  "meta": {}
+}
