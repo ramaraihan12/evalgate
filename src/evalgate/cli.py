@@ -167,6 +167,18 @@ def cmd_harvest(args) -> int:
     return 0
 
 
+def cmd_collect_runs(args) -> int:
+    from evalgate.dashboard import collect
+
+    repos = []
+    for item in args.repo:
+        repo, _, app = item.partition("=")
+        repos.append((app or repo.split("/")[-1], repo))
+    result = collect(repos, args.out)
+    print(f"{result['total']} runs ({result['new']} new) {result['per_app']}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="evalgate")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -216,6 +228,11 @@ def main(argv: list[str] | None = None) -> int:
     hv.add_argument("--days", type=int, default=7)
     hv.add_argument("--github-output", default=None, help="append rows= and week= to this file")
     hv.set_defaults(func=cmd_harvest)
+
+    cr = sub.add_parser("collect-runs", help="copy gate results into the dashboard's runs.json")
+    cr.add_argument("--repo", action="append", required=True, help="owner/name=app, repeatable")
+    cr.add_argument("--out", default="docs/data/runs.json")
+    cr.set_defaults(func=cmd_collect_runs)
 
     ver = sub.add_parser("verdict", help="exit 1 when the verdict file says FAIL")
     ver.add_argument("--file", required=True)
