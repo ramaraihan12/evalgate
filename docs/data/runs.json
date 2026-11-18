@@ -671,6 +671,34 @@
    "verdict": "PASS",
    "regressed_count": 0,
    "fixed_count": 0
+  },
+  {
+   "app": "sql-chat",
+   "repo": "ramaraihan12/text-to-sql-chat",
+   "run_id": 44253661333,
+   "run_url": "https://github.com/ramaraihan12/text-to-sql-chat/actions/runs/44253661333",
+   "created_at": "2026-11-18T06:45:13Z",
+   "pr": 5,
+   "pr_title": "catch NO_SQL replies the model wraps in a select",
+   "pr_state": "merged",
+   "branch": "no-sql-wrapped",
+   "n": 50,
+   "base_correct": 25,
+   "head_correct": 25,
+   "base_ci": [
+    0.36644286412332855,
+    0.6335571358766714
+   ],
+   "head_ci": [
+    0.36644286412332855,
+    0.6335571358766714
+   ],
+   "b": 0,
+   "c": 0,
+   "p_value": 1.0,
+   "verdict": "PASS",
+   "regressed_count": 0,
+   "fixed_count": 0
   }
  ]
 }
