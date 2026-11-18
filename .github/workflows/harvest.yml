@@ -1,0 +1,50 @@
+name: harvest
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  harvest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "0.12.23"
+
+      - name: Harvest flagged answers
+        id: harvest
+        env:
+          LANGFUSE_HOST: ${{ secrets.LANGFUSE_HOST }}
+          LANGFUSE_READ_PUBLIC_KEY: ${{ secrets.LANGFUSE_READ_PUBLIC_KEY }}
+          LANGFUSE_READ_SECRET_KEY: ${{ secrets.LANGFUSE_READ_SECRET_KEY }}
+        run: uv run evalgate harvest --out review-queue --github-output "$GITHUB_OUTPUT"
+
+      - name: Open a pull request
+        if: steps.harvest.outputs.rows != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WEEK: ${{ steps.harvest.outputs.week }}
+          ROWS: ${{ steps.harvest.outputs.rows }}
+        run: |
+          branch="harvest/${WEEK}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add review-queue
+          git commit -m "review queue ${WEEK}: ${ROWS} flagged answers"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "review queue ${WEEK}" \
+            --body "${ROWS} flagged answers from the last 7 days of production traces. Set label and expected on the rows worth keeping."
+
+      - name: Nothing new
+        if: steps.harvest.outputs.rows == '0'
+        run: echo "no new rows this week, no pull request"
