@@ -10,20 +10,30 @@ import re
 CITED = re.compile(r"\[(\d+)\]")  # the same pattern the app's /api/ask uses
 
 # What the prompt asks for ("say that the documents don't cover it") plus the app's own fixed
-# no-answer replies, in English and Indonesian. Kept deliberately short and plain.
+# no-answer replies, in English and Indonesian. A sentence only counts when it has both a
+# negation and a reference to the documents, so "the company does not cover visa fees" or
+# "visa fees are not included" (a confident made-up answer) is not an abstention.
+_ADV = r"(?:\w+\s+)?"  # one adverb, e.g. "do not explicitly mention"
 ABSTAIN_PATTERNS = [
     # English
-    r"\b(?:do not|don't|does not|doesn't|did not|didn't) (?:cover|contain|mention|include|address|specify|provide)\b",
-    r"\b(?:could not|couldn't|cannot|can't|can not|unable to|did not|didn't) (?:find|see)\b",
-    r"\bnot (?:covered|mentioned|addressed|specified|included|found|stated)\b",
-    r"\bno (?:information|mention|details?)\b",
+    r"(?:do not|don't|does not|doesn't|did not|didn't)\s+" + _ADV + r"(?:cover|contain|mention|include|address|specify|provide)",
+    r"(?:could not|couldn't|cannot|can't|can not|unable to|did not|didn't)\s+" + _ADV + r"(?:find|see)",
+    r"not\s+" + _ADV + r"(?:covered|mentioned|addressed|specified|included|found|stated)",
+    r"no\s+(?:information|mention|details?)",
     # Indonesian
-    r"\btidak (?:menemukan|membahas|mencakup|menyebut|menyebutkan|menjelaskan|memuat|mengatur|ada informasi|terdapat)\b",
-    r"\b(?:tidak|belum) (?:ada|tersedia) (?:informasi|keterangan|penjelasan)\b",
-    r"\b(?:tidak|belum) (?:dibahas|disebutkan|dijelaskan|diatur|tercantum|dicakup)\b",
-    r"\btidak (?:ditemukan|tercakup)\b",
+    r"tidak\s+" + _ADV + r"(?:menemukan|membahas|mencakup|menyebut|menyebutkan|menjelaskan|memuat|mengatur|ada\s+informasi|terdapat)",
+    r"(?:tidak|belum)\s+(?:ada|tersedia)\s+(?:informasi|keterangan|penjelasan)",
+    r"(?:tidak|belum)\s+" + _ADV + r"(?:dibahas|disebutkan|dijelaskan|diatur|tercantum|dicakup)",
+    r"tidak\s+(?:ditemukan|tercakup)",
 ]
-_ABSTAIN = [re.compile(p, re.IGNORECASE) for p in ABSTAIN_PATTERNS]
+_ABSTAIN = [re.compile(r"\b(?:" + p + r")\b", re.IGNORECASE) for p in ABSTAIN_PATTERNS]
+
+# What the negation has to be about, in the same sentence.
+_DOC_REF = re.compile(
+    r"\b(?:documents?|sources?|context|provided|files?|dokumen|sumber|konteks|berkas)\b",
+    re.IGNORECASE,
+)
+_SENTENCES = re.compile(r"(?<=[.!?])\s+|\n\s*\n")
 
 
 def cited_numbers(answer: str) -> list[int]:
@@ -73,7 +83,10 @@ def citation_ok(expected: dict, answer: str, sources: list[dict]) -> bool:
 
 def says_not_covered(answer: str) -> bool:
     text = (answer or "").replace("’", "'").replace("‘", "'")
-    return any(p.search(text) for p in _ABSTAIN)
+    for sentence in _SENTENCES.split(text):
+        if _DOC_REF.search(sentence) and any(p.search(sentence) for p in _ABSTAIN):
+            return True
+    return False
 
 
 def abstain_ok(answer: str, source_count: int) -> bool:

@@ -68,7 +68,10 @@ def test_citation_ok_needs_a_cite_in_range_and_the_right_source():
         "Saya tidak menemukan informasi itu di dokumen Anda, jadi saya tidak mau menebak.",
         "Dokumen tidak membahas harga produk.",
         "Informasi itu tidak disebutkan dalam dokumen.",
-        "Tidak ada informasi tentang visa.",
+        "Tidak ada informasi tentang visa di dokumen ini.",
+        "The documents do not explicitly mention stock options.",
+        "The documents  do not\ncover visa fees.",
+        "I could not find that in the provided context.",
     ],
 )
 def test_says_not_covered(text):
@@ -81,6 +84,11 @@ def test_says_not_covered(text):
         "Employees get 14 days of annual leave [1].",
         "Karyawan mendapat 14 hari cuti tahunan.",
         "You do not have to ask for approval for local trips.",
+        "No, the company doesn't cover visa fees for trips abroad.",
+        "Kabut Labs does not provide stock options to employees.",
+        "Visa fees are not included in reimbursable costs.",
+        "Tidak, perusahaan tidak mengatur penggantian visa.",
+        "Harga Tandon Sense T2 belum tersedia informasi resmi, sekitar Rp 2 juta.",
         "",
     ],
 )
