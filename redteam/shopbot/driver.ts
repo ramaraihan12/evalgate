@@ -9,11 +9,12 @@
  *   pnpm exec tsx .evalgate/driver.ts --cases cases.jsonl --model ID --repeats 1 \
  *     --out transcripts.jsonl --seed-out seed.json [--only rt01,rt02] [--turn-timeout-s 300]
  */
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { appendFileSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { createEmbedder, type EmbedFn } from "@/lib/ai/embeddings";
 import { chatProviderOptions, getChatModel, getEmbeddingModel } from "@/lib/ai/provider";
+import { buildInstructions } from "@/lib/chat/instructions";
 import { MAX_STEPS, PREFETCHED_POLICIES, respond, type RespondDeps } from "@/lib/chat/respond";
 import { customers, orders as seedOrders, products as seedProducts } from "@/lib/db/seed-data";
 import type { Env } from "@/lib/env";
@@ -118,10 +119,13 @@ function buildOrders(products: ProductRecord[], fixtures?: Fixtures): OrderRecor
   for (const patch of fixtures?.orders ?? []) {
     const existing = records.find((r) => r.number === patch.number);
     if (existing) {
-      // Overrides for an existing order: shippingCity, status, courier, trackingNumber, customerName.
-      const { customerName, ...rest } = patch;
+      // Overrides for an existing order: shippingCity, status, courier, trackingNumber, customerName, *DaysAgo.
+      const { customerName, placedDaysAgo, shippedDaysAgo, deliveredDaysAgo, ...rest } = patch;
       Object.assign(existing, rest);
       if (customerName) existing.customer = { ...existing.customer, name: customerName };
+      if (placedDaysAgo !== undefined) existing.placedAt = daysAgo(placedDaysAgo);
+      if (shippedDaysAgo !== undefined) existing.shippedAt = daysAgo(shippedDaysAgo);
+      if (deliveredDaysAgo !== undefined) existing.deliveredAt = daysAgo(deliveredDaysAgo);
     } else {
       // A new order: needs `customer` {name,email,phone}; the other fields have defaults.
       const customer = patch.customer;
@@ -178,6 +182,9 @@ class MemoryStore implements SupportStore {
   conversations: Conversation[] = [];
   messages: Array<StoredMessage & { conversationId: string; toolCalls?: string[] }> = [];
   tickets: Array<NewTicket & { id: number }> = [];
+  hits = new Map<string, { hits: number; expiresAtMs: number }>();
+  /** Set by the runner; every policy search is logged here for the delivery check. */
+  onPolicySearch: (search: { limit: number; results: { source: string; heading: string; similarity: number }[] }) => void = () => {};
 
   constructor(
     private products: ProductRecord[],
@@ -224,20 +231,36 @@ class MemoryStore implements SupportStore {
       .slice(0, limit);
   }
   async searchPolicies(embedding: number[], limit: number): Promise<PolicyMatch[]> {
-    return this.chunks
+    const found = this.chunks
       .map((c) => ({ source: c.source, heading: c.heading, content: c.content, similarity: cosine(c.embedding, embedding) }))
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, limit);
+    this.onPolicySearch({
+      limit,
+      results: found.map(({ source, heading, similarity }) => ({ source, heading, similarity: Number(similarity.toFixed(4)) })),
+    });
+    return found;
   }
   async createTicket(ticket: NewTicket) {
     const id = this.tickets.length + 1;
     this.tickets.push({ ...ticket, id });
     return { id, code: ticketCode(id) };
   }
-  async countHit() {
-    return { hits: 1, retryAfterSeconds: 60 };
+  // A fixed-window counter with expiry, like the database one.
+  async countHit(key: string, windowSeconds: number) {
+    const now = Date.now();
+    const current = this.hits.get(key);
+    const hit =
+      current && current.expiresAtMs > now
+        ? { ...current, hits: current.hits + 1 }
+        : { hits: 1, expiresAtMs: now + windowSeconds * 1000 };
+    this.hits.set(key, hit);
+    return { hits: hit.hits, retryAfterSeconds: Math.ceil((hit.expiresAtMs - now) / 1000) };
   }
-  async deleteExpiredHits() {}
+  async deleteExpiredHits() {
+    const now = Date.now();
+    for (const [key, hit] of this.hits) if (hit.expiresAtMs <= now) this.hits.delete(key);
+  }
 
   private conv(id: string): Conversation {
     const c = this.conversations.find((x) => x.id === id);
@@ -270,32 +293,56 @@ function withTimeout<T>(promise: Promise<T>, ms: number, what: string): Promise<
 
 const plain = (value: unknown) => JSON.parse(JSON.stringify(value ?? null));
 
-async function runTurn(deps: RespondDeps, externalId: string, text: string, timeoutMs: number) {
+async function runTurn(deps: RespondDeps, store: MemoryStore, errors: { sink: string[] }, externalId: string, text: string, timeoutMs: number) {
   const started = Date.now();
-  const turn: Record<string, any> = { user: text, kind: null, text: "", tool_calls: [], errors: [] };
+  const turn: Record<string, any> = {
+    user: text,
+    kind: null,
+    text: "",
+    final_text: "",
+    tool_calls: [],
+    policy_searches: [],
+    errors: [],
+  };
+  errors.sink = turn.errors;
+  let phase: "prefetch" | "model" = "prefetch";
+  store.onPolicySearch = (search) => turn.policy_searches.push({ phase, ...search });
   const work = async () => {
     const reply = await respond(deps, { channel: "web", externalId, text });
+    phase = "model"; // respond() awaits the prefetch before it returns
     turn.kind = reply.kind;
     if (reply.kind !== "model") {
       turn.text = reply.text;
+      turn.final_text = reply.text;
       return;
     }
     const result = reply.result;
-    // Drain the stream; the same stream carries error and tool-error parts.
+    // Drain the stream. A tool-error is the model's bad call (it stays on the call); only an
+    // error part is a real failure of the run.
+    const toolErrors = new Map<string, string>();
     for await (const part of result.stream as AsyncIterable<any>) {
       if (part.type === "error") turn.errors.push(String(part.error?.message ?? part.error));
-      if (part.type === "tool-error") {
-        turn.errors.push(`tool ${part.toolName}: ${String(part.error?.message ?? part.error)}`);
-      }
+      if (part.type === "tool-error") toolErrors.set(part.toolCallId, String(part.error?.message ?? part.error));
     }
-    turn.text = await result.text;
+    turn.final_text = await result.text;
     const steps = await result.steps;
     turn.steps = steps.length;
+    // Everything the customer sees: the text of every step, not only the last one.
+    turn.text = steps.map((step: any) => step.text).filter((t: string) => t && t.trim()).join("\n");
     for (const step of steps) {
       const outputs = new Map<string, any>();
       for (const r of step.toolResults as any[]) outputs.set(r.toolCallId, r.output);
       for (const call of step.toolCalls as any[]) {
-        turn.tool_calls.push({ name: call.toolName, input: plain(call.input), output: plain(outputs.get(call.toolCallId)) });
+        const error = toolErrors.get(call.toolCallId);
+        const output = outputs.get(call.toolCallId);
+        const record: Record<string, any> = { name: call.toolName, input: plain(call.input), output: plain(output) };
+        if (error !== undefined || call.invalid) {
+          record.error = error ?? "invalid tool call";
+          record.valid = false;
+        } else {
+          record.valid = output !== undefined;
+        }
+        turn.tool_calls.push(record);
       }
     }
     // onEnd saves the assistant message; give it a tick so the next turn sees the history.
@@ -343,7 +390,17 @@ async function main() {
     ADMIN_USER: "admin",
   } as Env;
   const chatModel = getChatModel(env);
-  const embed: EmbedFn = createEmbedder(getEmbeddingModel(env));
+  const rawEmbed = createEmbedder(getEmbeddingModel(env));
+  // respond() swallows a failed prefetch embedding, so record the failure on the running turn.
+  const errors: { sink: string[] } = { sink: [] };
+  const embed: EmbedFn = async (text) => {
+    try {
+      return await rawEmbed(text);
+    } catch (error) {
+      errors.sink.push(`embedding failed: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
+  };
   const providerOptions = chatProviderOptions(env);
 
   // Embed the real policy chunks once per process.
@@ -388,7 +445,8 @@ async function main() {
   }
 
   const digest = tags.find((t) => t.name === model || t.name === `${model}:latest`)?.digest ?? null;
-  const settings = {
+  const startedAt = new Date().toISOString();
+  const settings: Record<string, any> = {
     model,
     model_digest: digest,
     embedding_model: EMBEDDING_MODEL,
@@ -398,9 +456,21 @@ async function main() {
     max_steps: MAX_STEPS,
     prefetched_policies: PREFETCHED_POLICIES,
     turn_timeout_s: turnTimeoutMs / 1000,
+    repeats,
+    case_ids: cases.map((c) => c.id),
+    dataset_sha256: createHash("sha256").update(readFileSync(casesPath)).digest("hex"),
+    started_at: startedAt,
+    finished_at: null,
+    // The real prompt for a fixed date, so the grader can check its canary phrases against it.
+    system_prompt_sample: buildInstructions({
+      language: "en",
+      policies: [{ section: "Sample", text: "Sample policy text." }],
+      now: new Date("2026-01-15T05:00:00Z"),
+    }),
   };
+  const writeMeta = () => writeFileSync(`${outPath}.meta.json`, JSON.stringify(settings, null, 2));
   writeFileSync(outPath, "");
-  writeFileSync(`${outPath}.meta.json`, JSON.stringify(settings, null, 2));
+  writeMeta();
 
   const limiter = { check: () => ({ allowed: true as const }) };
   const total = cases.length * repeats;
@@ -418,15 +488,16 @@ async function main() {
       const turns: Record<string, any>[] = [];
       let fatal: string | null = null;
       for (const text of c.turns) {
-        const turn = await runTurn(deps, externalId, text, turnTimeoutMs);
+        const turn = await runTurn(deps, store, errors, externalId, text, turnTimeoutMs);
         turns.push(turn);
         if (turn.errors.length) {
+          // A real error (not a rejected tool call): Ollama down aborts the run, otherwise stop this case.
           try {
             await ollamaTags(baseUrl);
           } catch (error) {
             fatal = (error as Error).message;
           }
-          break; // a failed turn makes the later turns meaningless
+          break;
         }
       }
       if (fatal) die(`aborting the run: ${fatal}`);
@@ -447,9 +518,12 @@ async function main() {
       };
       appendFileSync(outPath, `${JSON.stringify(record)}\n`);
       done++;
+      writeMeta();
       log(`[${done}/${total}] ${c.id} repeat ${repeat} ${(record.wall_ms / 1000).toFixed(1)}s${record.error ? ` ERROR ${record.error.slice(0, 120)}` : ""}`);
     }
   }
+  settings.finished_at = new Date().toISOString();
+  writeMeta();
 }
 
 main().catch((error) => {

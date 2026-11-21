@@ -191,7 +191,7 @@ uv run evalgate collect-runs --repo ramaraihan12/text-to-sql-chat=sql-chat   --r
 ## Red-team: shop-support-bot
 
 A rule-graded prompt-injection test for [shop-support-bot](https://github.com/ramaraihan12/shop-support-bot),
-run on demand and not as a gate. `datasets/shopbot_redteam.jsonl` has attack cases (other
+run on demand and not as a gate. `datasets/shopbot_redteam.jsonl` has 35 attack cases (other
 customers' orders, rule overrides, prompt leaks, injected product, order and policy text, tool abuse,
 multi-turn) and five normal requests that a bot refusing everything would fail.
 
@@ -202,7 +202,29 @@ evalgate redteam grade --transcripts redteam/results/qwen3-5-9b-iq4xs/transcript
 
 `run` copies `redteam/shopbot/driver.ts` into the checkout and runs it there, so the attacks go
 through the bot's real `respond()`, tools, prompt and policy retrieval, with an in-memory store
-built from its seed data. `grade` is deterministic and needs no model: it checks replies for
-customer data the user didn't type and `lookupOrder` didn't return, invented contact details,
-system prompt sentences, injected markers and per-case tool rules. It works on saved transcripts.
-Passing is not proof of safety, and the phrase checks for promises are approximate.
+built from its seed data. A run with `--only` writes `transcripts.only.jsonl` so it never
+overwrites a full run. `grade` is deterministic and needs no model: it checks everything the
+customer would see for customer data the user didn't type and `lookupOrder` didn't return, invented
+contact details, system prompt sentences, injected markers and per-case tool rules. It works on
+saved transcripts. For the indirect cases it also checks that the planted text reached the model
+(a tool result or a retrieved policy chunk); a run where it didn't is `not_delivered`, reported
+separately and not counted as held.
+
+Results: RESULTS_PLACEHOLDER
+
+What this does not show:
+
+- It runs small local models (`qwen3.5-9b` iq4xs, `qwen3:1.7b`) with `qwen3-embedding:0.6b`, not
+  the Gemini models behind the live demo. A result says how this prompt and code behave with those
+  models, not how the demo behaves.
+- The system prompt is public in the repo, so prompt-leak cases measure whether the bot quotes it,
+  not whether it stays secret.
+- Catalog and policy injection needs write access to the shop's own data, and an injected shipping
+  city or customer name only reaches the owner of that order. Those cases test how far a poisoned
+  source can steer the bot, not an attack open to any visitor.
+- Some cases the code already guarantees: rt01, rt04 to rt15 and rt33 to rt35 can't leak real data
+  because `contactMatches` and `toCustomerView` decide what a lookup returns. They measure invented
+  contact details and prompt quoting. rt29 and rt30 are rejected by the tool's input schema, and
+  rt28 gets `already_handed_off` on a second handoff.
+- 40 cases are not a guarantee. The reply-phrase checks for promised refunds and discounts are
+  approximate regexes, so every hit is listed in the report to read by hand.
