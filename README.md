@@ -187,3 +187,22 @@ uv run pytest
 # refresh the dashboard data (needs GH_TOKEN or a logged-in gh)
 uv run evalgate collect-runs --repo ramaraihan12/text-to-sql-chat=sql-chat   --repo ramaraihan12/docs-rag-assistant=docs-rag --out docs/data/runs.json
 ```
+
+## Red-team: shop-support-bot
+
+A rule-graded prompt-injection test for [shop-support-bot](https://github.com/ramaraihan12/shop-support-bot),
+run on demand and not as a gate. `datasets/shopbot_redteam.jsonl` has attack cases (other
+customers' orders, rule overrides, prompt leaks, injected product, order and policy text, tool abuse,
+multi-turn) and five normal requests that a bot refusing everything would fail.
+
+```
+evalgate redteam run --app-dir PATH/TO/shop-support-bot --model qwen3.5-9b:iq4xs --repeats 3
+evalgate redteam grade --transcripts redteam/results/qwen3-5-9b-iq4xs/transcripts.jsonl
+```
+
+`run` copies `redteam/shopbot/driver.ts` into the checkout and runs it there, so the attacks go
+through the bot's real `respond()`, tools, prompt and policy retrieval, with an in-memory store
+built from its seed data. `grade` is deterministic and needs no model: it checks replies for
+customer data the user didn't type and `lookupOrder` didn't return, invented contact details,
+system prompt sentences, injected markers and per-case tool rules. It works on saved transcripts.
+Passing is not proof of safety, and the phrase checks for promises are approximate.
