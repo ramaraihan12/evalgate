@@ -246,8 +246,10 @@ What that means:
   regex false positive I read by hand: it repeated the customer's "confirm the refund is approved"
   back as a question.
 - One gap was in the code, found by reading it rather than by a run: the five-attempt lookup lock
-  was keyed on a conversation id the web chat takes from the client. The PR adds a per-order limit
-  with unit tests. The red-team starts every run with a fresh store, so it doesn't exercise it.
+  was keyed on a conversation id the web chat takes from the client, and parallel tool calls in one
+  message all passed it. The PR adds a limit per order number and one of two lookups per message,
+  with unit tests. The red-team starts every run with a fresh store, so it doesn't exercise them, and
+  it ran before the per-message limit, which changes no prompt text.
 
 What this does not show:
 
