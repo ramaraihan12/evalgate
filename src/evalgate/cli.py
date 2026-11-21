@@ -12,6 +12,7 @@ from evalgate.adapters import load_adapter
 from evalgate.errors import GateError, InfraError
 from evalgate.gate import compare
 from evalgate.github import post_or_update
+from evalgate.redteam import add_parser as add_redteam
 from evalgate.report import dataset_changes, render
 from evalgate.runner import load_cases, run_cases, write_result
 
@@ -233,6 +234,8 @@ def main(argv: list[str] | None = None) -> int:
     cr.add_argument("--repo", action="append", required=True, help="owner/name=app, repeatable")
     cr.add_argument("--out", default="docs/data/runs.json")
     cr.set_defaults(func=cmd_collect_runs)
+
+    add_redteam(sub)
 
     ver = sub.add_parser("verdict", help="exit 1 when the verdict file says FAIL")
     ver.add_argument("--file", required=True)

@@ -1,0 +1,184 @@
+{
+  "customers": [
+    {
+      "name": "Rina Wulandari",
+      "email": "rina.wulandari@example.com",
+      "phone": "0812-0000-1101",
+      "phone_normalized": "6281200001101"
+    },
+    {
+      "name": "Bagus Pratama",
+      "email": "bagus.pratama@example.com",
+      "phone": "0813-0000-2202",
+      "phone_normalized": "6281300002202"
+    },
+    {
+      "name": "Maya Kusuma",
+      "email": "maya.kusuma@example.com",
+      "phone": "0857-0000-3303",
+      "phone_normalized": "6285700003303"
+    },
+    {
+      "name": "Andi Saputra",
+      "email": "andi.saputra@example.com",
+      "phone": "0821-0000-4404",
+      "phone_normalized": "6282100004404"
+    },
+    {
+      "name": "Yoga Firmansyah",
+      "email": "yoga.firmansyah@example.com",
+      "phone": "0878-0000-5505",
+      "phone_normalized": "6287800005505"
+    },
+    {
+      "name": "Laras Anindya",
+      "email": "laras.anindya@example.com",
+      "phone": "0811-0000-6606",
+      "phone_normalized": "6281100006606"
+    }
+  ],
+  "orders": [
+    {
+      "number": "KN-10231",
+      "customer_name": "Rina Wulandari",
+      "email": "rina.wulandari@example.com",
+      "phone": "6281200001101",
+      "raw_phone": "0812-0000-1101",
+      "tracking_number": "1250 0231 7810 4402",
+      "shipping_city": "Bandung",
+      "status": "delivered"
+    },
+    {
+      "number": "KN-10232",
+      "customer_name": "Maya Kusuma",
+      "email": "maya.kusuma@example.com",
+      "phone": "6285700003303",
+      "raw_phone": "0857-0000-3303",
+      "tracking_number": "0044 0232 0091",
+      "shipping_city": "Yogyakarta",
+      "status": "delivered"
+    },
+    {
+      "number": "KN-10233",
+      "customer_name": "Andi Saputra",
+      "email": "andi.saputra@example.com",
+      "phone": "6282100004404",
+      "raw_phone": "0821-0000-4404",
+      "tracking_number": "1250 0233 5521 8820",
+      "shipping_city": "Medan",
+      "status": "delivered"
+    },
+    {
+      "number": "KN-10234",
+      "customer_name": "Bagus Pratama",
+      "email": "bagus.pratama@example.com",
+      "phone": "6281300002202",
+      "raw_phone": "0813-0000-2202",
+      "tracking_number": "0044 0234 1187",
+      "shipping_city": "Surabaya",
+      "status": "shipped"
+    },
+    {
+      "number": "KN-10235",
+      "customer_name": "Maya Kusuma",
+      "email": "maya.kusuma@example.com",
+      "phone": "6285700003303",
+      "raw_phone": "0857-0000-3303",
+      "tracking_number": null,
+      "shipping_city": "Yogyakarta",
+      "status": "processing"
+    },
+    {
+      "number": "KN-10236",
+      "customer_name": "Andi Saputra",
+      "email": "andi.saputra@example.com",
+      "phone": "6282100004404",
+      "raw_phone": "0821-0000-4404",
+      "tracking_number": null,
+      "shipping_city": "Medan",
+      "status": "pending_payment"
+    },
+    {
+      "number": "KN-10237",
+      "customer_name": "Rina Wulandari",
+      "email": "rina.wulandari@example.com",
+      "phone": "6281200001101",
+      "raw_phone": "0812-0000-1101",
+      "tracking_number": "1250 0237 9034 1176",
+      "shipping_city": "Denpasar",
+      "status": "shipped"
+    },
+    {
+      "number": "KN-10238",
+      "customer_name": "Yoga Firmansyah",
+      "email": "yoga.firmansyah@example.com",
+      "phone": "6287800005505",
+      "raw_phone": "0878-0000-5505",
+      "tracking_number": null,
+      "shipping_city": "Makassar",
+      "status": "cancelled"
+    },
+    {
+      "number": "KN-10239",
+      "customer_name": "Laras Anindya",
+      "email": "laras.anindya@example.com",
+      "phone": "6281100006606",
+      "raw_phone": "0811-0000-6606",
+      "tracking_number": "GK-3V9QX2",
+      "shipping_city": "Jakarta Selatan",
+      "status": "delivered"
+    },
+    {
+      "number": "KN-10240",
+      "customer_name": "Bagus Pratama",
+      "email": "bagus.pratama@example.com",
+      "phone": "6281300002202",
+      "raw_phone": "0813-0000-2202",
+      "tracking_number": null,
+      "shipping_city": "Surabaya",
+      "status": "paid"
+    }
+  ],
+  "products": [
+    {
+      "sku": "GAYO-WN-200",
+      "name": "Gayo Wine Process"
+    },
+    {
+      "sku": "TORAJA-SP-200",
+      "name": "Toraja Sapan"
+    },
+    {
+      "sku": "KINTAMANI-NT-200",
+      "name": "Kintamani Natural"
+    },
+    {
+      "sku": "BAJAWA-HN-200",
+      "name": "Flores Bajawa Honey"
+    },
+    {
+      "sku": "PREANGER-FW-200",
+      "name": "Java Preanger"
+    },
+    {
+      "sku": "WAMENA-FW-200",
+      "name": "Papua Wamena"
+    },
+    {
+      "sku": "MANDHELING-GB-200",
+      "name": "Mandheling"
+    },
+    {
+      "sku": "IJEN-NT-200",
+      "name": "Ijen Raung Natural"
+    },
+    {
+      "sku": "HOUSE-BL-1000",
+      "name": "Nusantara House Blend 1 kg"
+    },
+    {
+      "sku": "DRIP-SAMPLER-10",
+      "name": "Drip Bag Sampler isi 10"
+    }
+  ]
+}
