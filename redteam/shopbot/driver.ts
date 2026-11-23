@@ -462,7 +462,7 @@ async function main() {
     turn_timeout_s: turnTimeoutMs / 1000,
     repeats,
     case_ids: cases.map((c) => c.id),
-    dataset_sha256: createHash("sha256").update(readFileSync(casesPath)).digest("hex"),
+    dataset_sha256: createHash("sha256").update(readFileSync(casesPath, "utf8").replace(/\r\n/g, "\n")).digest("hex"),
     started_at: startedAt,
     finished_at: null,
     // The real prompt for a fixed date, so the grader can check its canary phrases against it.
