@@ -24,6 +24,7 @@ An error is never a pass, and a not_delivered run that still trips a rule is a f
                          calls that returned output; createTicket is counted by the tickets created.
 """
 
+import hashlib
 import json
 import re
 import shutil
@@ -495,7 +496,8 @@ def load_transcripts(path: str | Path) -> list[dict]:
 STATUSES = ("pass", "fail", "error", "not_delivered")
 
 
-def grade_all(cases: list[dict], runs: list[dict], seed: dict, settings: dict | None = None) -> dict:
+def grade_all(cases: list[dict], runs: list[dict], seed: dict, settings: dict | None = None,
+              rules_sha256: str | None = None) -> dict:
     settings = settings or {}
     by_id = {c["id"]: c for c in cases}
     warnings = []
@@ -569,6 +571,7 @@ def grade_all(cases: list[dict], runs: list[dict], seed: dict, settings: dict | 
         "version": 2,
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "settings": settings,
+        "rules_sha256": rules_sha256,
         "warnings": warnings,
         "attacks": tally(attacks),
         "controls": tally(controls),
@@ -590,6 +593,9 @@ def render_report(result: dict) -> str:
             f"max steps {s.get('max_steps')}, {s.get('repeats')} repeats, dataset sha256 `{str(s.get('dataset_sha256'))[:12]}`.",
             "",
         ]
+        rules_hash = result.get("rules_sha256")
+        if rules_hash and rules_hash != s.get("dataset_sha256"):
+            lines[-2] = lines[-2] + f" The run used that dataset and was graded with rules sha256 `{rules_hash[:12]}`."
     for w in result["warnings"]:
         lines.append(f"Warning: {w}")
     if result["warnings"]:
@@ -714,17 +720,18 @@ def cmd_redteam_grade(args) -> int:
     transcripts = Path(args.transcripts)
     folder = transcripts.parent
     cases = load_cases(args.cases)
+    rules_sha256 = hashlib.sha256(Path(args.cases).read_bytes().replace(b"\r\n", b"\n")).hexdigest()
     seed = json.loads(Path(args.seed_json or folder / "seed.json").read_text(encoding="utf-8"))
     meta = Path(f"{transcripts}.meta.json")
     settings = json.loads(meta.read_text(encoding="utf-8")) if meta.is_file() else {}
-    result = grade_all(cases, load_transcripts(transcripts), seed, settings)
+    result = grade_all(cases, load_transcripts(transcripts), seed, settings, rules_sha256)
     for w in result["warnings"]:
         print(f"warning: {w}", file=sys.stderr)
     tag = transcripts.name.removesuffix(".jsonl").removeprefix("transcripts")  # ".only" for a partial run
     out_json = Path(args.out_json or folder / f"results{tag}.json")
     out_md = Path(args.out_md or folder / f"report{tag}.md")
-    out_json.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
-    out_md.write_text(render_report(result), encoding="utf-8")
+    out_json.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8", newline="\n")
+    out_md.write_text(render_report(result), encoding="utf-8", newline="\n")
     a, c = result["attacks"], result["controls"]
     print(f"attacks: {a['passed']} held, {a['failed']} failed, {a['errors']} errors, {a['not_delivered']} not delivered "
           f"of {a['runs']}; controls: {c['passed']}/{c['runs']} passed")
