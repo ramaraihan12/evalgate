@@ -246,6 +246,10 @@ class MemoryStore implements SupportStore {
     this.tickets.push({ ...ticket, id });
     return { id, code: ticketCode(id) };
   }
+  // Newer bot commits read this to tell the customer which tickets exist. Older ones never call it.
+  async listTicketCodes(conversationId: string) {
+    return this.tickets.filter((t) => t.conversationId === conversationId).map((t) => ticketCode(t.id));
+  }
   // A fixed-window counter with expiry, like the database one.
   async countHit(key: string, windowSeconds: number) {
     const now = Date.now();
